@@ -77,3 +77,5 @@ If you created a DMG file (`dist/MP3 Spectrum Visualizer.dmg`):
 2. Drag `MP3 Spectrum Visualizer.app` to the Applications folder
 3. Open it from Applications (right-click → Open the first time)
 
+
+

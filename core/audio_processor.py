@@ -23,6 +23,10 @@ class AudioProcessor:
         self.sample_rate: Optional[int] = None
         self.duration: Optional[float] = None
         self._spectrum_cache: Optional[np.ndarray] = None
+        self._beat_frames: Optional[np.ndarray] = None
+        self._beat_times: Optional[np.ndarray] = None
+        self._tempo: Optional[float] = None
+        self._onset_envelope: Optional[np.ndarray] = None
         
     def load_audio(self) -> Tuple[np.ndarray, int]:
         """
@@ -173,4 +177,133 @@ class AudioProcessor:
         # Normalize (this is a simple normalization, may need tuning)
         intensity = min(1.0, energy / 0.1)  # Adjust threshold as needed
         return float(intensity)
+    
+    def detect_beats(self) -> Tuple[float, np.ndarray]:
+        """
+        Detect beats in the audio.
+        
+        Returns:
+            Tuple of (tempo in BPM, beat frame numbers)
+        """
+        if self._tempo is not None and self._beat_frames is not None:
+            return self._tempo, self._beat_frames
+        
+        audio_data, sr = self.load_audio()
+        
+        # Detect tempo and beat frames
+        tempo, beat_frames = librosa.beat.beat_track(y=audio_data, sr=sr)
+        
+        # Convert tempo from array to float if needed
+        if isinstance(tempo, np.ndarray):
+            tempo = float(tempo[0]) if len(tempo) > 0 else 120.0
+        else:
+            tempo = float(tempo)
+        
+        # Convert beat frames to time
+        beat_times = librosa.frames_to_time(beat_frames, sr=sr)
+        
+        self._tempo = tempo
+        self._beat_frames = beat_frames
+        self._beat_times = beat_times
+        
+        return tempo, beat_frames
+    
+    def get_tempo(self) -> float:
+        """
+        Get the tempo (BPM) of the audio.
+        
+        Returns:
+            Tempo in beats per minute
+        """
+        if self._tempo is None:
+            self.detect_beats()
+        return self._tempo if self._tempo else 120.0
+    
+    def get_beat_times(self) -> np.ndarray:
+        """
+        Get beat timestamps in seconds.
+        
+        Returns:
+            Array of beat times in seconds
+        """
+        if self._beat_times is None:
+            self.detect_beats()
+        return self._beat_times if self._beat_times is not None else np.array([])
+    
+    def is_beat_frame(self, frame_number: int, frame_rate: int = 30, tolerance: int = 2) -> bool:
+        """
+        Check if a frame is close to a beat.
+        
+        Args:
+            frame_number: Frame number to check
+            frame_rate: Video frame rate
+            tolerance: Number of frames tolerance around beat
+            
+        Returns:
+            True if frame is near a beat
+        """
+        beat_times = self.get_beat_times()
+        if len(beat_times) == 0:
+            return False
+        
+        # Convert frame number to time
+        frame_time = frame_number / frame_rate
+        
+        # Check if any beat is within tolerance
+        for beat_time in beat_times:
+            time_diff = abs(frame_time - beat_time)
+            frame_diff = time_diff * frame_rate
+            if frame_diff <= tolerance:
+                return True
+        
+        return False
+    
+    def get_beat_strength(self, frame_number: int, frame_rate: int = 30) -> float:
+        """
+        Get beat strength for a frame (0.0 to 1.0).
+        
+        Args:
+            frame_number: Frame number
+            frame_rate: Video frame rate
+            
+        Returns:
+            Beat strength (1.0 at beat, fades to 0.0)
+        """
+        beat_times = self.get_beat_times()
+        if len(beat_times) == 0:
+            return 0.0
+        
+        frame_time = frame_number / frame_rate
+        
+        # Find closest beat
+        time_diffs = np.abs(beat_times - frame_time)
+        min_diff = np.min(time_diffs)
+        
+        # Convert to frame difference
+        frame_diff = min_diff * frame_rate
+        
+        # Calculate strength (exponential decay)
+        if frame_diff < 10:  # Within 10 frames
+            strength = np.exp(-frame_diff / 3.0)  # Decay factor
+            return float(np.clip(strength, 0.0, 1.0))
+        
+        return 0.0
+    
+    def compute_onset_envelope(self) -> np.ndarray:
+        """
+        Compute onset strength envelope for rhythm analysis.
+        
+        Returns:
+            Onset strength envelope
+        """
+        if self._onset_envelope is not None:
+            return self._onset_envelope
+        
+        audio_data, sr = self.load_audio()
+        
+        # Compute onset strength
+        onset_env = librosa.onset.onset_strength(y=audio_data, sr=sr)
+        
+        self._onset_envelope = onset_env
+        return onset_env
 

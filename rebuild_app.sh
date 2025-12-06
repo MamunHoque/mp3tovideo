@@ -18,3 +18,5 @@ echo "  open 'dist/MP3 Spectrum Visualizer.app'"
 echo ""
 echo "Or right-click the app and select 'Open' (first time only)"
 
+
+

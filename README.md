@@ -1,27 +1,57 @@
-# MP3 Spectrum Visualizer
+# MP3 to Video Generator
 
-A Python application for creating video visualizations from MP3 audio files with customizable backgrounds, visual effects, and spectrum analysis.
+A professional Python application for creating stunning video visualizations from MP3 audio files with advanced features including video backgrounds, beat detection, multiple visualizer styles, and platform-specific export presets.
 
 ## Features
 
-- **Audio Processing**: Load and analyze MP3 files using librosa
-- **Background Customization**:
-  - Choose background images
-  - Adjust background fit (Stretch, Tile, Center)
-  - Apply blur effects
-  - Convert to black & white
-  - Add vignette effects
-- **Visual Effects**:
-  - Club strobe effect with customizable colors
-  - Background animations (Fade In, etc.)
-- **Spectrum Visualization**: Real-time frequency spectrum bars with color gradients
-- **Additional Features**:
-  - Text overlay
-  - Logo overlay
-  - Manual lyrics input
-  - Save/Load settings
-- **Preview**: Generate 5-second preview before full video generation
-- **Video Generation**: Export high-quality MP4 videos with audio
+### Audio Analysis
+- **Beat Detection**: Automatic tempo and beat detection using librosa
+- **Spectrum Analysis**: Real-time frequency analysis with 64 frequency bands
+- **Audio Intensity Tracking**: Dynamic effects based on audio energy
+
+### Background Options
+- **Video Backgrounds**: Use MP4 videos as animated backgrounds with looping support
+- **Image Backgrounds**: Static images with fit modes (Stretch, Tile, Center)
+- **Solid Colors**: Simple solid color backgrounds
+- **Effects**: Blur, vignette, black & white conversion
+
+### Visualizer Styles
+- **Bars**: Classic spectrum bars with color gradients
+- **Filled Waveform**: Smooth audio waveform visualization
+- **Circle**: Circular spectrum analyzer radiating from center
+- **Line Waveform**: Traditional oscilloscope-style waveform
+- **Particle System**: Dynamic audio-reactive particles
+
+### Color Gradients
+- **Pitch Rainbow**: Full spectrum rainbow based on frequency
+- **Frequency-based**: Low=red, mid=green, high=blue
+- **Energy-based**: Color intensity based on amplitude
+- **Custom**: User-defined gradient colors
+- **Monochrome**: Single color with varying intensity
+
+### Beat-Synchronized Effects
+- **Pulse**: Scale effect on beats
+- **Flash**: White flash on beats
+- **Strobe**: Beat-synced strobe lighting
+- **Zoom**: Zoom in/out on beats
+
+### Templates & Presets
+- **Built-in Templates**: Minimal, Club, Retro, Modern, Particle Burst
+- **Platform Presets**: YouTube, Instagram Story, TikTok optimized settings
+- **Custom Templates**: Save and load your own configurations
+
+### Performance Optimization
+- **Quality Presets**: Fast, Balanced, High quality modes
+- **Hardware Acceleration**: VideoToolbox (macOS) support
+- **Multiprocessing**: Parallel frame generation for faster rendering
+- **Progress Tracking**: Real-time FPS counter and ETA
+
+### Additional Features
+- **Text Overlay**: Add custom text with positioning
+- **Logo Overlay**: Brand your videos
+- **Real-time Preview**: Preview with playback before generating
+- **Multiple Resolutions**: 480p to 4K support
+- **Multiple Orientations**: Landscape, Portrait, Square, Ultrawide
 
 ## Requirements
 

@@ -3,7 +3,10 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('core', 'core'), ('gui', 'gui')]
 binaries = []
-hiddenimports = ['PyQt5', 'librosa', 'numpy', 'PIL', 'ffmpeg', 'soundfile']
+hiddenimports = [
+    'PyQt5', 'librosa', 'numpy', 'PIL', 'ffmpeg', 'soundfile',
+    'cv2', 'scipy', 'numba'
+]
 tmp_ret = collect_all('librosa')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('numpy')
@@ -11,6 +14,8 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('scipy')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('sklearn')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+tmp_ret = collect_all('cv2')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
@@ -52,15 +57,15 @@ exe = EXE(
 )
 app = BUNDLE(
     exe,
-    name='MP3 Spectrum Visualizer.app',
+    name='MP3 to Video Generator.app',
     icon=None,
-    bundle_identifier='com.spectrumvisualizer.app',
-    version='1.0.0',
+    bundle_identifier='com.mp3tovideo.app',
+    version='2.0.0',
     info_plist={
         'NSPrincipalClass': 'NSApplication',
         'NSHighResolutionCapable': 'True',
-        'CFBundleShortVersionString': '1.0.0',
-        'CFBundleVersion': '1.0.0',
+        'CFBundleShortVersionString': '2.0.0',
+        'CFBundleVersion': '2.0.0',
         'NSHumanReadableCopyright': 'Copyright © 2024',
         'LSMinimumSystemVersion': '10.13',
     },

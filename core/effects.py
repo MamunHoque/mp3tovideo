@@ -219,3 +219,131 @@ def apply_background_animation(base_image: Image.Image, frame_number: int,
     else:
         return base_image
 
+
+def apply_beat_pulse(frame: Image.Image, beat_strength: float, 
+                     scale_factor: float = 1.1) -> Image.Image:
+    """
+    Apply pulse effect on beats by scaling the image.
+    
+    Args:
+        frame: PIL Image to pulse
+        beat_strength: Beat strength (0.0 to 1.0)
+        scale_factor: Maximum scale factor at full beat strength
+        
+    Returns:
+        Image with pulse effect
+    """
+    if beat_strength < 0.01:
+        return frame
+    
+    # Calculate scale based on beat strength
+    scale = 1.0 + (scale_factor - 1.0) * beat_strength
+    
+    # Scale image
+    width, height = frame.size
+    new_width = int(width * scale)
+    new_height = int(height * scale)
+    
+    scaled = frame.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    
+    # Crop back to original size (centered)
+    left = (new_width - width) // 2
+    top = (new_height - height) // 2
+    cropped = scaled.crop((left, top, left + width, top + height))
+    
+    return cropped
+
+
+def apply_beat_flash(frame: Image.Image, beat_strength: float, 
+                     color: Tuple[int, int, int] = (255, 255, 255),
+                     max_intensity: float = 0.3) -> Image.Image:
+    """
+    Apply flash effect on beats.
+    
+    Args:
+        frame: PIL Image to flash
+        beat_strength: Beat strength (0.0 to 1.0)
+        color: RGB color for flash
+        max_intensity: Maximum flash intensity
+        
+    Returns:
+        Image with flash effect
+    """
+    if beat_strength < 0.01:
+        return frame
+    
+    # Calculate flash intensity
+    intensity = beat_strength * max_intensity
+    
+    # Create flash overlay
+    overlay = Image.new('RGB', frame.size, color=color)
+    
+    # Blend with original frame
+    flashed = Image.blend(frame, overlay, intensity)
+    return flashed
+
+
+def apply_beat_strobe(frame: Image.Image, beat_strength: float, 
+                      color: Tuple[int, int, int] = (255, 255, 255),
+                      threshold: float = 0.5) -> Image.Image:
+    """
+    Apply strobe effect synchronized to beats.
+    
+    Args:
+        frame: PIL Image to strobe
+        beat_strength: Beat strength (0.0 to 1.0)
+        color: RGB color for strobe
+        threshold: Minimum beat strength to trigger strobe
+        
+    Returns:
+        Image with beat-synchronized strobe
+    """
+    if beat_strength < threshold:
+        return frame
+    
+    # Full intensity strobe on beat
+    overlay = Image.new('RGB', frame.size, color=color)
+    
+    # Calculate intensity based on beat strength
+    intensity = min(0.8, beat_strength)
+    
+    # Blend with original frame
+    strobed = Image.blend(frame, overlay, intensity)
+    return strobed
+
+
+def apply_beat_zoom(frame: Image.Image, beat_strength: float,
+                    zoom_amount: float = 0.05) -> Image.Image:
+    """
+    Apply zoom effect on beats.
+    
+    Args:
+        frame: PIL Image to zoom
+        beat_strength: Beat strength (0.0 to 1.0)
+        zoom_amount: Amount to zoom (0.0 to 1.0)
+        
+    Returns:
+        Image with zoom effect
+    """
+    if beat_strength < 0.01:
+        return frame
+    
+    # Calculate zoom based on beat strength
+    zoom = 1.0 + (zoom_amount * beat_strength)
+    
+    width, height = frame.size
+    new_width = int(width / zoom)
+    new_height = int(height / zoom)
+    
+    # Calculate crop box (centered)
+    left = (width - new_width) // 2
+    top = (height - new_height) // 2
+    
+    # Crop and resize back
+    cropped = frame.crop((left, top, left + new_width, top + new_height))
+    zoomed = cropped.resize((width, height), Image.Resampling.LANCZOS)
+    
+    return zoomed
+
+
+

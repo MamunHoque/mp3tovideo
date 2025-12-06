@@ -239,21 +239,58 @@ class MainWindow(QMainWindow):
         layout.setSpacing(10)
         layout.setContentsMargins(15, 15, 15, 15)
         
+        # Background Type Selection
+        bg_type_group = QGroupBox("Background Type")
+        bg_type_layout = QVBoxLayout()
+        self.bg_type_combo = QComboBox()
+        self.bg_type_combo.addItems(["Image", "Video", "Solid Color"])
+        self.bg_type_combo.currentTextChanged.connect(self.on_background_type_changed)
+        bg_type_layout.addWidget(self.bg_type_combo)
+        bg_type_group.setLayout(bg_type_layout)
+        layout.addWidget(bg_type_group)
+        
         # Background Image
-        bg_group = QGroupBox("Background (Optional)")
+        self.bg_image_group = QGroupBox("Background Image (Optional)")
         bg_layout = QVBoxLayout()
         
         bg_file_layout = QHBoxLayout()
         self.bg_path_input = QLineEdit()
         self.bg_path_input.setPlaceholderText("No background selected")
-        self.bg_browse_btn = QPushButton("Browse...")
+        self.bg_browse_btn = QPushButton("Browse Image...")
         self.bg_browse_btn.clicked.connect(self.browse_background)
         bg_file_layout.addWidget(self.bg_path_input, 1)
         bg_file_layout.addWidget(self.bg_browse_btn)
         bg_layout.addLayout(bg_file_layout)
         
-        bg_group.setLayout(bg_layout)
-        layout.addWidget(bg_group)
+        self.bg_image_group.setLayout(bg_layout)
+        layout.addWidget(self.bg_image_group)
+        
+        # Background Video
+        self.bg_video_group = QGroupBox("Background Video (Optional)")
+        bg_video_layout = QVBoxLayout()
+        
+        bg_video_file_layout = QHBoxLayout()
+        self.bg_video_path_input = QLineEdit()
+        self.bg_video_path_input.setPlaceholderText("No video selected")
+        self.bg_video_browse_btn = QPushButton("Browse Video...")
+        self.bg_video_browse_btn.clicked.connect(self.browse_video_background)
+        bg_video_file_layout.addWidget(self.bg_video_path_input, 1)
+        bg_video_file_layout.addWidget(self.bg_video_browse_btn)
+        bg_video_layout.addLayout(bg_video_file_layout)
+        
+        self.bg_video_group.setLayout(bg_video_layout)
+        self.bg_video_group.setVisible(False)  # Hidden by default
+        layout.addWidget(self.bg_video_group)
+        
+        # Solid Color Background
+        self.bg_color_group = QGroupBox("Background Color")
+        bg_color_layout = QVBoxLayout()
+        self.bg_color_btn = QPushButton("Choose Color...")
+        self.bg_color_btn.clicked.connect(self.choose_background_color)
+        bg_color_layout.addWidget(self.bg_color_btn)
+        self.bg_color_group.setLayout(bg_color_layout)
+        self.bg_color_group.setVisible(False)  # Hidden by default
+        layout.addWidget(self.bg_color_group)
         
         # Background Fit
         fit_group = QGroupBox("Background Fit")
@@ -857,7 +894,47 @@ class MainWindow(QMainWindow):
         if file_path:
             self.bg_path_input.setText(file_path)
             self.settings_manager.set_setting('background_path', file_path)
+            self.settings_manager.set_setting('video_background_path', '')  # Clear video background
             self.update_preview_frame()
+    
+    def browse_video_background(self):
+        """Browse for background video."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Background Video", "", 
+            "Video Files (*.mp4);;All Files (*)"
+        )
+        if file_path:
+            self.bg_video_path_input.setText(file_path)
+            self.settings_manager.set_setting('video_background_path', file_path)
+            self.settings_manager.set_setting('background_path', '')  # Clear image background
+            self.update_preview_frame()
+    
+    def on_background_type_changed(self, bg_type: str):
+        """Handle background type change."""
+        if bg_type == "Image":
+            self.bg_image_group.setVisible(True)
+            self.bg_video_group.setVisible(False)
+            self.bg_color_group.setVisible(False)
+        elif bg_type == "Video":
+            self.bg_image_group.setVisible(False)
+            self.bg_video_group.setVisible(True)
+            self.bg_color_group.setVisible(False)
+        elif bg_type == "Solid Color":
+            self.bg_image_group.setVisible(False)
+            self.bg_video_group.setVisible(False)
+            self.bg_color_group.setVisible(True)
+        self.update_settings()
+    
+    def choose_background_color(self):
+        """Choose solid background color."""
+        current_color = self.settings_manager.get_setting('background_color', [0, 0, 0])
+        color = QColorDialog.getColor(
+            QColor(*current_color), self, "Choose Background Color"
+        )
+        if color.isValid():
+            rgb = [color.red(), color.green(), color.blue()]
+            self.settings_manager.set_setting('background_color', rgb)
+            self.update_settings()
     
     def browse_logo(self):
         """Browse for logo image."""
@@ -1009,6 +1086,11 @@ class MainWindow(QMainWindow):
     
     def update_settings(self):
         """Update settings from UI controls."""
+        # Background type
+        if hasattr(self, 'bg_type_combo'):
+            bg_type = self.bg_type_combo.currentText().lower().replace(' ', '_')
+            self.settings_manager.set_setting('background_type', bg_type)
+        
         # Background settings
         fit_text = self.bg_fit_combo.currentText().lower()
         if 'stretch' in fit_text:
@@ -1254,6 +1336,21 @@ class MainWindow(QMainWindow):
         bg_path = settings.get('background_path', '')
         if bg_path:
             self.bg_path_input.setText(bg_path)
+        
+        # Load video background path
+        video_bg_path = settings.get('video_background_path', '')
+        if video_bg_path and hasattr(self, 'bg_video_path_input'):
+            self.bg_video_path_input.setText(video_bg_path)
+        
+        # Load background type
+        bg_type = settings.get('background_type', 'image')
+        if hasattr(self, 'bg_type_combo'):
+            if bg_type == 'image':
+                self.bg_type_combo.setCurrentText('Image')
+            elif bg_type == 'video':
+                self.bg_type_combo.setCurrentText('Video')
+            elif bg_type == 'solid_color':
+                self.bg_type_combo.setCurrentText('Solid Color')
         
         logo_path = settings.get('logo_path', '')
         if logo_path:

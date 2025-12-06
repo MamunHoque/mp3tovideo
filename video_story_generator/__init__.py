@@ -1,0 +1,5 @@
+"""
+Video Story Generator Application
+"""
+
+
