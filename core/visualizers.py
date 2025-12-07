@@ -441,3 +441,5 @@ class VisualizerFactory:
         else:
             # Default to bars
             return BarsVisualizer(width, height, settings)
+
+

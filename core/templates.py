@@ -305,3 +305,5 @@ class TemplateManager:
         updated_settings.update(template_settings)
         
         return updated_settings
+
+

@@ -177,3 +177,5 @@ GradientType ColorGradient::fromString(const std::string& str)
 }
 
 } // namespace Utils
+
+

@@ -6,3 +6,5 @@
 #include "utils/PerformanceTimer.h"
 
 // Implementation is in header file (header-only class)
+
+

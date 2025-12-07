@@ -188,3 +188,5 @@ class VideoBackground:
     def __del__(self):
         """Cleanup on deletion."""
         self.close()
+
+
