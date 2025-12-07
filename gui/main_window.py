@@ -224,6 +224,10 @@ class MainWindow(QMainWindow):
         lyrics_tab = self.create_auto_lyrics_tab()
         self.tabs.addTab(lyrics_tab, "Auto Lyrics")
         
+        # Performance Tab
+        performance_tab = self.create_performance_tab()
+        self.tabs.addTab(performance_tab, "Performance")
+        
         # Save/Load Tab
         save_load_tab = self.create_save_load_tab()
         self.tabs.addTab(save_load_tab, "Save/Load")
@@ -512,6 +516,112 @@ class MainWindow(QMainWindow):
         resolution_layout.addWidget(self.resolution_combo)
         resolution_group.setLayout(resolution_layout)
         layout.addWidget(resolution_group)
+        
+        layout.addStretch()
+        tab.setLayout(layout)
+        return tab
+    
+    def create_performance_tab(self) -> QWidget:
+        """Create Performance tab."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
+        
+        # Info label
+        info_label = QLabel("⚡ Optimize video generation speed")
+        info_label.setStyleSheet("font-weight: bold; font-size: 13px; color: #4a9eff;")
+        layout.addWidget(info_label)
+        
+        # Quality Preset
+        quality_group = QGroupBox("Quality Preset")
+        quality_layout = QVBoxLayout()
+        
+        self.quality_preset_combo = QComboBox()
+        self.quality_preset_combo.addItems(["Fast (Lower Quality)", "Balanced", "High Quality (Slower)"])
+        self.quality_preset_combo.setCurrentText("Fast (Lower Quality)")
+        self.quality_preset_combo.currentTextChanged.connect(self.on_quality_preset_changed)
+        quality_layout.addWidget(self.quality_preset_combo)
+        
+        quality_info = QLabel("Fast: ~2-3x faster, good for previews\nBalanced: Good quality/speed ratio\nHigh: Best quality, slowest")
+        quality_info.setStyleSheet("color: #aaaaaa; font-size: 11px;")
+        quality_layout.addWidget(quality_info)
+        
+        quality_group.setLayout(quality_layout)
+        layout.addWidget(quality_group)
+        
+        # Encoding Preset
+        encoding_group = QGroupBox("Encoding Speed")
+        encoding_layout = QVBoxLayout()
+        
+        self.encoding_preset_combo = QComboBox()
+        self.encoding_preset_combo.addItems(["Ultrafast", "Fast", "Medium", "Slow"])
+        self.encoding_preset_combo.setCurrentText("Ultrafast")
+        self.encoding_preset_combo.currentTextChanged.connect(self.update_settings)
+        encoding_layout.addWidget(self.encoding_preset_combo)
+        
+        encoding_info = QLabel("Ultrafast: Fastest encoding, larger file size\nSlow: Slower encoding, smaller file size")
+        encoding_info.setStyleSheet("color: #aaaaaa; font-size: 11px;")
+        encoding_layout.addWidget(encoding_info)
+        
+        encoding_group.setLayout(encoding_layout)
+        layout.addWidget(encoding_group)
+        
+        # Hardware Acceleration
+        hw_accel_group = QGroupBox("Hardware Acceleration")
+        hw_accel_layout = QVBoxLayout()
+        
+        self.hw_accel_checkbox = QCheckBox("Use Hardware Acceleration (macOS VideoToolbox)")
+        self.hw_accel_checkbox.setChecked(True)
+        self.hw_accel_checkbox.stateChanged.connect(self.update_settings)
+        hw_accel_layout.addWidget(self.hw_accel_checkbox)
+        
+        hw_info = QLabel("Significantly faster on supported Macs.\nAutomatically falls back to software if unavailable.")
+        hw_info.setStyleSheet("color: #aaaaaa; font-size: 11px;")
+        hw_accel_layout.addWidget(hw_info)
+        
+        hw_accel_group.setLayout(hw_accel_layout)
+        layout.addWidget(hw_accel_group)
+        
+        # Resolution Quick Settings
+        quick_res_group = QGroupBox("Quick Resolution")
+        quick_res_layout = QVBoxLayout()
+        
+        quick_res_info = QLabel("Lower resolution = faster generation")
+        quick_res_info.setStyleSheet("color: #aaaaaa; font-size: 11px;")
+        quick_res_layout.addWidget(quick_res_info)
+        
+        quick_res_buttons = QHBoxLayout()
+        
+        res_720_btn = QPushButton("720p")
+        res_720_btn.clicked.connect(lambda: self.set_quick_resolution(1280, 720))
+        quick_res_buttons.addWidget(res_720_btn)
+        
+        res_1080_btn = QPushButton("1080p")
+        res_1080_btn.clicked.connect(lambda: self.set_quick_resolution(1920, 1080))
+        quick_res_buttons.addWidget(res_1080_btn)
+        
+        quick_res_layout.addLayout(quick_res_buttons)
+        quick_res_group.setLayout(quick_res_layout)
+        layout.addWidget(quick_res_group)
+        
+        # Performance Tips
+        tips_group = QGroupBox("💡 Performance Tips")
+        tips_layout = QVBoxLayout()
+        
+        tips_text = QLabel(
+            "• Use 'Fast' preset for quick previews\n"
+            "• Lower resolution (720p) = 2x faster\n"
+            "• Disable beat sync if not needed\n"
+            "• Use solid color background instead of video\n"
+            "• Disable blur/vignette effects"
+        )
+        tips_text.setStyleSheet("color: #cccccc; font-size: 11px;")
+        tips_text.setWordWrap(True)
+        tips_layout.addWidget(tips_text)
+        
+        tips_group.setLayout(tips_layout)
+        layout.addWidget(tips_group)
         
         layout.addStretch()
         tab.setLayout(layout)
@@ -1012,6 +1122,26 @@ class MainWindow(QMainWindow):
         self.resolution_combo.setEnabled(enabled)
         self.update_settings()
     
+    def on_quality_preset_changed(self, text):
+        """Handle quality preset change."""
+        if "Fast" in text:
+            self.settings_manager.set_setting('quality_preset', 'fast')
+            self.encoding_preset_combo.setCurrentText("Ultrafast")
+        elif "Balanced" in text:
+            self.settings_manager.set_setting('quality_preset', 'balanced')
+            self.encoding_preset_combo.setCurrentText("Fast")
+        elif "High" in text:
+            self.settings_manager.set_setting('quality_preset', 'high')
+            self.encoding_preset_combo.setCurrentText("Medium")
+        self.update_settings()
+    
+    def set_quick_resolution(self, width, height):
+        """Set resolution quickly."""
+        self.settings_manager.set_setting('video_width', width)
+        self.settings_manager.set_setting('video_height', height)
+        self.update_video_generator()
+        self.statusBar().showMessage(f"Resolution set to {width}x{height}")
+    
     def update_orientation(self, orientation_text):
         """Update video dimensions based on orientation selection."""
         self.update_settings()
@@ -1135,6 +1265,14 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'resolution_combo'):
             resolution_text = self.resolution_combo.currentText().split(' ')[0].lower()
             self.settings_manager.set_setting('resolution', resolution_text)
+        
+        # Performance settings
+        if hasattr(self, 'hw_accel_checkbox'):
+            self.settings_manager.set_setting('use_hardware_acceleration',
+                                            self.hw_accel_checkbox.isChecked())
+        if hasattr(self, 'encoding_preset_combo'):
+            encoding_text = self.encoding_preset_combo.currentText().lower()
+            self.settings_manager.set_setting('encoding_preset', encoding_text)
         
         # Update video generator
         self.update_video_generator()

@@ -35,7 +35,16 @@ class SettingsManager:
         'visualizer_style': 'filled_waveform',
         'color_gradient': 'pitch_rainbow',
         'orientation': 'landscape_16_9',
-        'resolution': '1080p'
+        'resolution': '1080p',
+        # Performance settings
+        'quality_preset': 'fast',  # fast, balanced, high
+        'use_hardware_acceleration': True,
+        'encoding_preset': 'ultrafast',  # ultrafast, fast, medium, slow
+        'use_multiprocessing': True,
+        'beat_sync_enabled': False,
+        'video_background_path': '',
+        'background_type': 'solid_color',
+        'background_color': [0, 0, 0]
     }
     
     def __init__(self, settings_file: str = 'settings.json'):
