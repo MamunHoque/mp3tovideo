@@ -25,6 +25,9 @@ class SettingsManager:
         'auto_lyrics': False,
         'lyrics_text': '',
         'logo_path': '',
+        'logo_text': '',
+        'logo_position': 'top-right',
+        'logo_scale': 10,
         'text_overlay': '',
         'text_position': 'center',
         'text_color': [255, 255, 255],
@@ -44,7 +47,30 @@ class SettingsManager:
         'beat_sync_enabled': False,
         'video_background_path': '',
         'background_type': 'solid_color',
-        'background_color': [0, 0, 0]
+        'background_color': [0, 0, 0],
+        # Opacity settings
+        'visualizer_opacity': 100,
+        'background_opacity': 100,
+        'overlay_opacity': 100,
+        'logo_opacity': 100,
+        'text_opacity': 100,
+        # Multiple backgrounds
+        'background_paths': [],
+        'video_background_paths': [],
+        'slideshow_enabled': False,
+        'slideshow_interval': 10,
+        'slideshow_transition': 'fade',
+        'transition_duration': 1.0,
+        'auto_adjust_slideshow': False,
+        # Beat shake
+        'background_beat_shake_enabled': False,
+        'background_beat_shake_intensity': 50,
+        # Overlay effects
+        'overlay_effect_type': 'none',  # none, rain, snow, sparkles, bubbles
+        'overlay_video_path': '',
+        # Preview settings
+        'preview_duration': 10,  # seconds
+        'fast_preview': True  # Enable fast preview mode by default
     }
     
     def __init__(self, settings_file: str = 'settings.json'):

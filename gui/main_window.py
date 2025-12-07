@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QColor
+from PIL import Image
 
 from gui.preview_widget import PreviewWidget
 from core.audio_processor import AudioProcessor
@@ -220,6 +221,10 @@ class MainWindow(QMainWindow):
         visualizer_tab = self.create_visualizer_tab()
         self.tabs.addTab(visualizer_tab, "Visualizer")
         
+        # Overlay Effects Tab
+        overlay_tab = self.create_overlay_effects_tab()
+        self.tabs.addTab(overlay_tab, "Overlay Effects")
+        
         # Auto Lyrics Tab
         lyrics_tab = self.create_auto_lyrics_tab()
         self.tabs.addTab(lyrics_tab, "Auto Lyrics")
@@ -257,6 +262,7 @@ class MainWindow(QMainWindow):
         self.bg_image_group = QGroupBox("Background Image (Optional)")
         bg_layout = QVBoxLayout()
         
+        # Single background (for backward compatibility)
         bg_file_layout = QHBoxLayout()
         self.bg_path_input = QLineEdit()
         self.bg_path_input.setPlaceholderText("No background selected")
@@ -266,6 +272,87 @@ class MainWindow(QMainWindow):
         bg_file_layout.addWidget(self.bg_browse_btn)
         bg_layout.addLayout(bg_file_layout)
         
+        # Multiple backgrounds for slideshow
+        bg_layout.addWidget(QLabel("Multiple Backgrounds (Slideshow):"))
+        
+        from PyQt5.QtWidgets import QListWidget, QAbstractItemView
+        self.bg_list_widget = QListWidget()
+        self.bg_list_widget.setMaximumHeight(150)
+        self.bg_list_widget.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        bg_layout.addWidget(self.bg_list_widget)
+        
+        # Buttons for managing multiple backgrounds
+        bg_buttons_layout = QHBoxLayout()
+        self.bg_add_multiple_btn = QPushButton("Add Images...")
+        self.bg_add_multiple_btn.clicked.connect(self.add_multiple_backgrounds)
+        self.bg_add_multiple_btn.setToolTip("Select multiple images for slideshow")
+        bg_buttons_layout.addWidget(self.bg_add_multiple_btn)
+        
+        self.bg_remove_btn = QPushButton("Remove Selected")
+        self.bg_remove_btn.clicked.connect(self.remove_selected_backgrounds)
+        bg_buttons_layout.addWidget(self.bg_remove_btn)
+        
+        self.bg_clear_btn = QPushButton("Clear All")
+        self.bg_clear_btn.clicked.connect(self.clear_all_backgrounds)
+        bg_buttons_layout.addWidget(self.bg_clear_btn)
+        bg_layout.addLayout(bg_buttons_layout)
+        
+        # Slideshow settings
+        slideshow_check_layout = QHBoxLayout()
+        self.slideshow_enabled_checkbox = QCheckBox("Enable Slideshow")
+        self.slideshow_enabled_checkbox.setToolTip("Enable slideshow mode to cycle through multiple backgrounds")
+        self.slideshow_enabled_checkbox.stateChanged.connect(self.toggle_slideshow_settings)
+        slideshow_check_layout.addWidget(self.slideshow_enabled_checkbox)
+        bg_layout.addLayout(slideshow_check_layout)
+        
+        # Auto-adjust to cover music duration
+        auto_adjust_layout = QHBoxLayout()
+        self.auto_adjust_slideshow_checkbox = QCheckBox("Auto-adjust timing to cover music duration")
+        self.auto_adjust_slideshow_checkbox.setToolTip("Automatically calculate interval to distribute backgrounds evenly across the entire music duration")
+        self.auto_adjust_slideshow_checkbox.setEnabled(False)
+        self.auto_adjust_slideshow_checkbox.stateChanged.connect(self.toggle_auto_adjust_slideshow)
+        auto_adjust_layout.addWidget(self.auto_adjust_slideshow_checkbox)
+        bg_layout.addLayout(auto_adjust_layout)
+        
+        # Slideshow interval
+        interval_layout = QHBoxLayout()
+        interval_layout.addWidget(QLabel("Interval (sec):"))
+        self.slideshow_interval_slider = QSlider(Qt.Horizontal)
+        self.slideshow_interval_slider.setRange(5, 60)
+        self.slideshow_interval_slider.setValue(10)
+        self.slideshow_interval_slider.setEnabled(False)
+        self.slideshow_interval_slider.valueChanged.connect(self.update_slideshow_interval_label)
+        self.slideshow_interval_label = QLabel("10s")
+        self.slideshow_interval_label.setMinimumWidth(40)
+        interval_layout.addWidget(self.slideshow_interval_slider)
+        interval_layout.addWidget(self.slideshow_interval_label)
+        bg_layout.addLayout(interval_layout)
+        
+        # Transition type
+        transition_layout = QHBoxLayout()
+        transition_layout.addWidget(QLabel("Transition:"))
+        self.transition_combo = QComboBox()
+        self.transition_combo.addItems(["Fade", "Crossfade", "Slide", "Zoom", "Instant"])
+        self.transition_combo.setEnabled(False)
+        self.transition_combo.setToolTip("Choose transition effect between backgrounds")
+        self.transition_combo.currentTextChanged.connect(self.update_settings)
+        transition_layout.addWidget(self.transition_combo)
+        bg_layout.addLayout(transition_layout)
+        
+        # Transition duration
+        duration_layout = QHBoxLayout()
+        duration_layout.addWidget(QLabel("Duration (sec):"))
+        self.transition_duration_slider = QSlider(Qt.Horizontal)
+        self.transition_duration_slider.setRange(5, 30)  # 0.5 to 3.0 seconds (x10)
+        self.transition_duration_slider.setValue(10)  # 1.0 second default
+        self.transition_duration_slider.setEnabled(False)
+        self.transition_duration_slider.valueChanged.connect(self.update_transition_duration_label)
+        self.transition_duration_label = QLabel("1.0s")
+        self.transition_duration_label.setMinimumWidth(40)
+        duration_layout.addWidget(self.transition_duration_slider)
+        duration_layout.addWidget(self.transition_duration_label)
+        bg_layout.addLayout(duration_layout)
+        
         self.bg_image_group.setLayout(bg_layout)
         layout.addWidget(self.bg_image_group)
         
@@ -273,6 +360,7 @@ class MainWindow(QMainWindow):
         self.bg_video_group = QGroupBox("Background Video (Optional)")
         bg_video_layout = QVBoxLayout()
         
+        # Single video (for backward compatibility)
         bg_video_file_layout = QHBoxLayout()
         self.bg_video_path_input = QLineEdit()
         self.bg_video_path_input.setPlaceholderText("No video selected")
@@ -281,6 +369,31 @@ class MainWindow(QMainWindow):
         bg_video_file_layout.addWidget(self.bg_video_path_input, 1)
         bg_video_file_layout.addWidget(self.bg_video_browse_btn)
         bg_video_layout.addLayout(bg_video_file_layout)
+        
+        # Multiple videos for slideshow
+        bg_video_layout.addWidget(QLabel("Multiple Videos (Slideshow):"))
+        
+        from PyQt5.QtWidgets import QListWidget, QAbstractItemView
+        self.bg_video_list_widget = QListWidget()
+        self.bg_video_list_widget.setMaximumHeight(150)
+        self.bg_video_list_widget.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        bg_video_layout.addWidget(self.bg_video_list_widget)
+        
+        # Buttons for managing multiple videos
+        bg_video_buttons_layout = QHBoxLayout()
+        self.bg_video_add_multiple_btn = QPushButton("Add Videos...")
+        self.bg_video_add_multiple_btn.clicked.connect(self.add_multiple_video_backgrounds)
+        self.bg_video_add_multiple_btn.setToolTip("Select multiple videos for slideshow")
+        bg_video_buttons_layout.addWidget(self.bg_video_add_multiple_btn)
+        
+        self.bg_video_remove_btn = QPushButton("Remove Selected")
+        self.bg_video_remove_btn.clicked.connect(self.remove_selected_video_backgrounds)
+        bg_video_buttons_layout.addWidget(self.bg_video_remove_btn)
+        
+        self.bg_video_clear_btn = QPushButton("Clear All")
+        self.bg_video_clear_btn.clicked.connect(self.clear_all_video_backgrounds)
+        bg_video_buttons_layout.addWidget(self.bg_video_clear_btn)
+        bg_video_layout.addLayout(bg_video_buttons_layout)
         
         self.bg_video_group.setLayout(bg_video_layout)
         self.bg_video_group.setVisible(False)  # Hidden by default
@@ -314,6 +427,7 @@ class MainWindow(QMainWindow):
         self.blur_slider.setRange(0, 100)
         self.blur_slider.setValue(0)
         self.blur_slider.valueChanged.connect(self.update_blur_label)
+        self.blur_slider.setToolTip("Apply Gaussian blur to background (0-100). Higher values create stronger blur effect.")
         self.blur_label = QLabel("0")
         self.blur_label.setMinimumWidth(40)
         blur_slider_layout.addWidget(self.blur_slider)
@@ -378,6 +492,45 @@ class MainWindow(QMainWindow):
         anim_group.setLayout(anim_layout)
         layout.addWidget(anim_group)
         
+        # Background Opacity
+        bg_opacity_group = QGroupBox("Background Opacity")
+        bg_opacity_layout = QVBoxLayout()
+        bg_opacity_slider_layout = QHBoxLayout()
+        self.background_opacity_slider = QSlider(Qt.Horizontal)
+        self.background_opacity_slider.setRange(0, 100)
+        self.background_opacity_slider.setValue(100)
+        self.background_opacity_slider.valueChanged.connect(self.update_background_opacity_label)
+        self.background_opacity_label = QLabel("100%")
+        self.background_opacity_label.setMinimumWidth(50)
+        bg_opacity_slider_layout.addWidget(self.background_opacity_slider)
+        bg_opacity_slider_layout.addWidget(self.background_opacity_label)
+        bg_opacity_layout.addLayout(bg_opacity_slider_layout)
+        bg_opacity_group.setLayout(bg_opacity_layout)
+        layout.addWidget(bg_opacity_group)
+        
+        # Beat Shake Effect
+        beat_shake_group = QGroupBox("Beat Shake Effect")
+        beat_shake_layout = QVBoxLayout()
+        self.beat_shake_checkbox = QCheckBox("Enable Beat Shake")
+        self.beat_shake_checkbox.setToolTip("Make the background shake/vibrate in sync with the music beats. Intensity controls the shake amount.")
+        self.beat_shake_checkbox.stateChanged.connect(self.toggle_beat_shake)
+        beat_shake_layout.addWidget(self.beat_shake_checkbox)
+        
+        shake_intensity_layout = QHBoxLayout()
+        shake_intensity_layout.addWidget(QLabel("Intensity:"))
+        self.beat_shake_slider = QSlider(Qt.Horizontal)
+        self.beat_shake_slider.setRange(0, 100)
+        self.beat_shake_slider.setValue(50)
+        self.beat_shake_slider.setEnabled(False)
+        self.beat_shake_slider.valueChanged.connect(self.update_beat_shake_label)
+        self.beat_shake_label = QLabel("50")
+        self.beat_shake_label.setMinimumWidth(40)
+        shake_intensity_layout.addWidget(self.beat_shake_slider)
+        shake_intensity_layout.addWidget(self.beat_shake_label)
+        beat_shake_layout.addLayout(shake_intensity_layout)
+        beat_shake_group.setLayout(beat_shake_layout)
+        layout.addWidget(beat_shake_group)
+        
         layout.addStretch()
         tab.setLayout(layout)
         return tab
@@ -417,9 +570,27 @@ class MainWindow(QMainWindow):
         text_group.setLayout(text_layout)
         layout.addWidget(text_group)
         
+        # Text Opacity
+        text_opacity_group = QGroupBox("Text Opacity")
+        text_opacity_layout = QVBoxLayout()
+        text_opacity_slider_layout = QHBoxLayout()
+        self.text_opacity_slider = QSlider(Qt.Horizontal)
+        self.text_opacity_slider.setRange(0, 100)
+        self.text_opacity_slider.setValue(100)
+        self.text_opacity_slider.valueChanged.connect(self.update_text_opacity_label)
+        self.text_opacity_label = QLabel("100%")
+        self.text_opacity_label.setMinimumWidth(50)
+        text_opacity_slider_layout.addWidget(self.text_opacity_slider)
+        text_opacity_slider_layout.addWidget(self.text_opacity_label)
+        text_opacity_layout.addLayout(text_opacity_slider_layout)
+        text_opacity_group.setLayout(text_opacity_layout)
+        layout.addWidget(text_opacity_group)
+        
         # Logo
         logo_group = QGroupBox("Logo")
         logo_layout = QVBoxLayout()
+        
+        # Logo image file
         logo_file_layout = QHBoxLayout()
         self.logo_path_input = QLineEdit()
         self.logo_path_input.setPlaceholderText("No logo selected")
@@ -428,8 +599,60 @@ class MainWindow(QMainWindow):
         logo_file_layout.addWidget(self.logo_path_input, 1)
         logo_file_layout.addWidget(self.logo_browse_btn)
         logo_layout.addLayout(logo_file_layout)
+        
+        # OR text as logo
+        logo_layout.addWidget(QLabel("OR use text as logo:"))
+        self.logo_text_input = QLineEdit()
+        self.logo_text_input.setPlaceholderText("Enter text for logo...")
+        self.logo_text_input.textChanged.connect(self.update_settings)
+        logo_layout.addLayout(logo_file_layout)
+        logo_layout.addWidget(self.logo_text_input)
+        
+        # Logo position
+        position_layout = QHBoxLayout()
+        position_layout.addWidget(QLabel("Position:"))
+        self.logo_position_combo = QComboBox()
+        self.logo_position_combo.addItems([
+            "Top-Left", "Top-Center", "Top-Right",
+            "Middle-Left", "Middle-Right",
+            "Bottom-Left", "Bottom-Center", "Bottom-Right"
+        ])
+        self.logo_position_combo.setCurrentText("Top-Right")
+        self.logo_position_combo.currentTextChanged.connect(self.update_settings)
+        position_layout.addWidget(self.logo_position_combo)
+        logo_layout.addLayout(position_layout)
+        
+        # Logo scale
+        scale_layout = QHBoxLayout()
+        scale_layout.addWidget(QLabel("Size:"))
+        self.logo_scale_slider = QSlider(Qt.Horizontal)
+        self.logo_scale_slider.setRange(5, 20)
+        self.logo_scale_slider.setValue(10)
+        self.logo_scale_slider.valueChanged.connect(self.update_logo_scale_label)
+        self.logo_scale_label = QLabel("10%")
+        self.logo_scale_label.setMinimumWidth(50)
+        scale_layout.addWidget(self.logo_scale_slider)
+        scale_layout.addWidget(self.logo_scale_label)
+        logo_layout.addLayout(scale_layout)
+        
         logo_group.setLayout(logo_layout)
         layout.addWidget(logo_group)
+        
+        # Logo Opacity
+        logo_opacity_group = QGroupBox("Logo Opacity")
+        logo_opacity_layout = QVBoxLayout()
+        logo_opacity_slider_layout = QHBoxLayout()
+        self.logo_opacity_slider = QSlider(Qt.Horizontal)
+        self.logo_opacity_slider.setRange(0, 100)
+        self.logo_opacity_slider.setValue(100)
+        self.logo_opacity_slider.valueChanged.connect(self.update_logo_opacity_label)
+        self.logo_opacity_label = QLabel("100%")
+        self.logo_opacity_label.setMinimumWidth(50)
+        logo_opacity_slider_layout.addWidget(self.logo_opacity_slider)
+        logo_opacity_slider_layout.addWidget(self.logo_opacity_label)
+        logo_opacity_layout.addLayout(logo_opacity_slider_layout)
+        logo_opacity_group.setLayout(logo_opacity_layout)
+        layout.addWidget(logo_opacity_group)
         
         layout.addStretch()
         tab.setLayout(layout)
@@ -457,9 +680,16 @@ class MainWindow(QMainWindow):
             "Bars",
             "Circle",
             "Line Waveform",
-            "Particle"
+            "Particle",
+            "NCS Bars",
+            "Dual Spectrum",
+            "Waveform Particle",
+            "Modern Gradient Bars",
+            "Pulse Ring",
+            "Frequency Dots"
         ])
         self.visualizer_style_combo.setCurrentText("Filled Waveform")
+        self.visualizer_style_combo.setToolTip("Choose the visual style for your audio spectrum. NCS Bars provides the popular NoCopyrightSounds style with glow effects.")
         self.visualizer_style_combo.currentTextChanged.connect(self.update_settings)
         style_layout.addWidget(self.visualizer_style_combo)
         style_group.setLayout(style_layout)
@@ -474,7 +704,11 @@ class MainWindow(QMainWindow):
             "Frequency-based",
             "Energy-based",
             "Custom",
-            "Monochrome"
+            "Monochrome",
+            "Neon",
+            "Sunset",
+            "Ocean",
+            "Fire"
         ])
         self.color_gradient_combo.setCurrentText("Pitch Rainbow")
         self.color_gradient_combo.currentTextChanged.connect(self.update_settings)
@@ -517,6 +751,22 @@ class MainWindow(QMainWindow):
         resolution_group.setLayout(resolution_layout)
         layout.addWidget(resolution_group)
         
+        # Visualizer Opacity
+        opacity_group = QGroupBox("Visualizer Opacity")
+        opacity_layout = QVBoxLayout()
+        opacity_slider_layout = QHBoxLayout()
+        self.visualizer_opacity_slider = QSlider(Qt.Horizontal)
+        self.visualizer_opacity_slider.setRange(0, 100)
+        self.visualizer_opacity_slider.setValue(100)
+        self.visualizer_opacity_slider.valueChanged.connect(self.update_visualizer_opacity_label)
+        self.visualizer_opacity_label = QLabel("100%")
+        self.visualizer_opacity_label.setMinimumWidth(50)
+        opacity_slider_layout.addWidget(self.visualizer_opacity_slider)
+        opacity_slider_layout.addWidget(self.visualizer_opacity_label)
+        opacity_layout.addLayout(opacity_slider_layout)
+        opacity_group.setLayout(opacity_layout)
+        layout.addWidget(opacity_group)
+        
         layout.addStretch()
         tab.setLayout(layout)
         return tab
@@ -557,6 +807,7 @@ class MainWindow(QMainWindow):
         self.encoding_preset_combo = QComboBox()
         self.encoding_preset_combo.addItems(["Ultrafast", "Fast", "Medium", "Slow"])
         self.encoding_preset_combo.setCurrentText("Ultrafast")
+        self.encoding_preset_combo.setToolTip("⚡ Ultrafast = Quick encoding, larger file size. 🐌 Slow = Better compression, smaller file, takes longer.")
         self.encoding_preset_combo.currentTextChanged.connect(self.update_settings)
         encoding_layout.addWidget(self.encoding_preset_combo)
         
@@ -622,6 +873,56 @@ class MainWindow(QMainWindow):
         
         tips_group.setLayout(tips_layout)
         layout.addWidget(tips_group)
+        
+        layout.addStretch()
+        tab.setLayout(layout)
+        return tab
+    
+    def create_overlay_effects_tab(self) -> QWidget:
+        """Create Overlay Effects tab."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
+        
+        # Overlay Effect Type
+        effect_group = QGroupBox("Overlay Effect Type")
+        effect_layout = QVBoxLayout()
+        self.overlay_effect_combo = QComboBox()
+        self.overlay_effect_combo.addItems([
+            "None",
+            "Rain",
+            "Snow",
+            "Sparkles",
+            "Bubbles"
+        ])
+        self.overlay_effect_combo.setToolTip("Add animated particle effects overlaid on your video. Rain and Snow fall from top, Sparkles twinkle, Bubbles rise from bottom.")
+        self.overlay_effect_combo.currentTextChanged.connect(self.update_settings)
+        effect_layout.addWidget(self.overlay_effect_combo)
+        effect_group.setLayout(effect_layout)
+        layout.addWidget(effect_group)
+        
+        # Overlay Opacity
+        overlay_opacity_group = QGroupBox("Overlay Opacity")
+        overlay_opacity_layout = QVBoxLayout()
+        overlay_opacity_slider_layout = QHBoxLayout()
+        self.overlay_opacity_slider = QSlider(Qt.Horizontal)
+        self.overlay_opacity_slider.setRange(0, 100)
+        self.overlay_opacity_slider.setValue(100)
+        self.overlay_opacity_slider.valueChanged.connect(self.update_overlay_opacity_label)
+        self.overlay_opacity_label = QLabel("100%")
+        self.overlay_opacity_label.setMinimumWidth(50)
+        overlay_opacity_slider_layout.addWidget(self.overlay_opacity_slider)
+        overlay_opacity_slider_layout.addWidget(self.overlay_opacity_label)
+        overlay_opacity_layout.addLayout(overlay_opacity_slider_layout)
+        overlay_opacity_group.setLayout(overlay_opacity_layout)
+        layout.addWidget(overlay_opacity_group)
+        
+        # Info label
+        info_label = QLabel("Add animated particle effects like rain, snow, sparkles, or bubbles to your video.")
+        info_label.setStyleSheet("color: #aaaaaa; font-size: 11px;")
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
         
         layout.addStretch()
         tab.setLayout(layout)
@@ -735,6 +1036,12 @@ class MainWindow(QMainWindow):
         self.auto_preview_checkbox.setChecked(True)
         self.auto_preview_checkbox.stateChanged.connect(self.toggle_auto_preview)
         preview_controls_layout.addWidget(self.auto_preview_checkbox)
+        
+        self.fast_preview_checkbox = QCheckBox("Fast Preview")
+        self.fast_preview_checkbox.setChecked(True)
+        self.fast_preview_checkbox.setToolTip("⚡ Generate preview at lower resolution and fewer frames for faster updates")
+        self.fast_preview_checkbox.stateChanged.connect(self.update_settings)
+        preview_controls_layout.addWidget(self.fast_preview_checkbox)
         
         preview_layout.addLayout(preview_controls_layout)
         
@@ -1007,17 +1314,172 @@ class MainWindow(QMainWindow):
             self.settings_manager.set_setting('video_background_path', '')  # Clear video background
             self.update_preview_frame()
     
+    def add_multiple_backgrounds(self):
+        """Add multiple background images for slideshow."""
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self, "Select Multiple Background Images", "",
+            "Image Files (*.png *.jpg *.jpeg *.bmp);;All Files (*)"
+        )
+        if file_paths:
+            for file_path in file_paths:
+                self.bg_list_widget.addItem(file_path)
+            
+            # Update settings with all paths
+            self.update_background_paths()
+    
+    def remove_selected_backgrounds(self):
+        """Remove selected backgrounds from list."""
+        for item in self.bg_list_widget.selectedItems():
+            self.bg_list_widget.takeItem(self.bg_list_widget.row(item))
+        
+        self.update_background_paths()
+    
+    def clear_all_backgrounds(self):
+        """Clear all backgrounds from list."""
+        self.bg_list_widget.clear()
+        self.update_background_paths()
+    
+    def update_background_paths(self):
+        """Update background paths setting from list widget."""
+        paths = []
+        for i in range(self.bg_list_widget.count()):
+            paths.append(self.bg_list_widget.item(i).text())
+        
+        self.settings_manager.set_setting('background_paths', paths)
+        self.update_video_generator()
+        
+        # Update preview if auto-preview is enabled
+        if self.auto_preview_enabled and paths:
+            self.preview_update_timer.stop()
+            self.preview_update_timer.start(500)
+    
+    def toggle_slideshow_settings(self, state):
+        """Toggle slideshow-related settings."""
+        enabled = state == Qt.Checked
+        self.slideshow_interval_slider.setEnabled(enabled and not self.auto_adjust_slideshow_checkbox.isChecked())
+        self.transition_combo.setEnabled(enabled)
+        self.transition_duration_slider.setEnabled(enabled)
+        self.auto_adjust_slideshow_checkbox.setEnabled(enabled)
+        
+        self.settings_manager.set_setting('slideshow_enabled', enabled)
+        self.update_video_generator()
+        
+        if self.auto_preview_enabled:
+            self.preview_update_timer.stop()
+            self.preview_update_timer.start(500)
+    
+    def toggle_auto_adjust_slideshow(self, state):
+        """Toggle auto-adjust slideshow timing."""
+        enabled = state == Qt.Checked
+        
+        # Disable manual interval slider when auto-adjust is enabled
+        self.slideshow_interval_slider.setEnabled(not enabled and self.slideshow_enabled_checkbox.isChecked())
+        
+        self.settings_manager.set_setting('auto_adjust_slideshow', enabled)
+        
+        # Calculate and set interval if enabled
+        if enabled and self.audio_processor:
+            self.calculate_auto_slideshow_interval()
+        
+        self.update_video_generator()
+    
+    def calculate_auto_slideshow_interval(self):
+        """Calculate slideshow interval to cover music duration."""
+        if not self.audio_processor:
+            return
+        
+        # Get number of backgrounds
+        num_backgrounds = self.bg_list_widget.count()
+        if num_backgrounds == 0:
+            num_backgrounds = self.bg_video_list_widget.count()
+        
+        if num_backgrounds == 0:
+            return
+        
+        # Get music duration
+        music_duration = self.audio_processor.get_duration()
+        transition_duration = self.settings_manager.get_setting('transition_duration', 1.0)
+        
+        # Calculate interval: (total_duration - (transitions * transition_duration)) / num_backgrounds
+        total_transition_time = (num_backgrounds - 1) * transition_duration
+        available_time = music_duration - total_transition_time
+        
+        if available_time > 0:
+            interval = available_time / num_backgrounds
+            # Clamp to reasonable values (5-60 seconds)
+            interval = max(5, min(60, interval))
+            
+            self.slideshow_interval_slider.setValue(int(interval))
+            self.slideshow_interval_label.setText(f"{int(interval)}s (auto)")
+            self.settings_manager.set_setting('slideshow_interval', int(interval))
+            
+            self.statusBar().showMessage(
+                f"Auto-adjusted: {num_backgrounds} backgrounds over {music_duration:.1f}s = {interval:.1f}s per background"
+            )
+    
+    def update_slideshow_interval_label(self, value):
+        """Update slideshow interval label."""
+        self.slideshow_interval_label.setText(f"{value}s")
+        self.settings_manager.set_setting('slideshow_interval', value)
+        self.update_video_generator()
+    
+    def update_transition_duration_label(self, value):
+        """Update transition duration label."""
+        duration = value / 10.0  # Convert to seconds
+        self.transition_duration_label.setText(f"{duration:.1f}s")
+        self.settings_manager.set_setting('transition_duration', duration)
+        self.update_video_generator()
+    
     def browse_video_background(self):
         """Browse for background video."""
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select Background Video", "", 
-            "Video Files (*.mp4);;All Files (*)"
+            "Video Files (*.mp4 *.mov *.avi *.mkv);;All Files (*)"
         )
         if file_path:
             self.bg_video_path_input.setText(file_path)
             self.settings_manager.set_setting('video_background_path', file_path)
             self.settings_manager.set_setting('background_path', '')  # Clear image background
             self.update_preview_frame()
+    
+    def add_multiple_video_backgrounds(self):
+        """Add multiple background videos for slideshow."""
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self, "Select Multiple Background Videos", "",
+            "Video Files (*.mp4 *.mov *.avi *.mkv);;All Files (*)"
+        )
+        if file_paths:
+            for file_path in file_paths:
+                self.bg_video_list_widget.addItem(file_path)
+            
+            # Update settings with all paths
+            self.update_video_background_paths()
+    
+    def remove_selected_video_backgrounds(self):
+        """Remove selected video backgrounds from list."""
+        for item in self.bg_video_list_widget.selectedItems():
+            self.bg_video_list_widget.takeItem(self.bg_video_list_widget.row(item))
+        
+        self.update_video_background_paths()
+    
+    def clear_all_video_backgrounds(self):
+        """Clear all video backgrounds from list."""
+        self.bg_video_list_widget.clear()
+        self.update_video_background_paths()
+    
+    def update_video_background_paths(self):
+        """Update video background paths setting from list widget."""
+        paths = []
+        for i in range(self.bg_video_list_widget.count()):
+            paths.append(self.bg_video_list_widget.item(i).text())
+        
+        self.settings_manager.set_setting('video_background_paths', paths)
+        self.update_video_generator()
+        
+        # Update preview if auto-preview is enabled
+        if self.auto_preview_enabled and paths:
+            self.preview_update_timer.stop()
+            self.preview_update_timer.start(500)
     
     def on_background_type_changed(self, bg_type: str):
         """Handle background type change."""
@@ -1078,6 +1540,11 @@ class MainWindow(QMainWindow):
                 duration = self.audio_processor.get_duration()
                 self.statusBar().showMessage(f"Audio loaded: {duration:.2f} seconds")
                 self.update_video_generator()
+                
+                # Auto-calculate slideshow interval if enabled
+                if hasattr(self, 'auto_adjust_slideshow_checkbox') and self.auto_adjust_slideshow_checkbox.isChecked():
+                    self.calculate_auto_slideshow_interval()
+                
                 # Generate preview frames when audio is loaded
                 if self.auto_preview_enabled:
                     self.generate_preview_frames()
@@ -1098,6 +1565,55 @@ class MainWindow(QMainWindow):
     def update_vignette_label(self, value):
         """Update vignette label."""
         self.vignette_label.setText(str(value))
+        self.update_settings()
+    
+    def update_visualizer_opacity_label(self, value):
+        """Update visualizer opacity label."""
+        self.visualizer_opacity_label.setText(f"{value}%")
+        self.settings_manager.set_setting('visualizer_opacity', value)
+        self.update_settings()
+    
+    def update_background_opacity_label(self, value):
+        """Update background opacity label."""
+        self.background_opacity_label.setText(f"{value}%")
+        self.settings_manager.set_setting('background_opacity', value)
+        self.update_settings()
+    
+    def update_text_opacity_label(self, value):
+        """Update text opacity label."""
+        self.text_opacity_label.setText(f"{value}%")
+        self.settings_manager.set_setting('text_opacity', value)
+        self.update_settings()
+    
+    def update_logo_opacity_label(self, value):
+        """Update logo opacity label."""
+        self.logo_opacity_label.setText(f"{value}%")
+        self.settings_manager.set_setting('logo_opacity', value)
+        self.update_settings()
+    
+    def update_overlay_opacity_label(self, value):
+        """Update overlay opacity label."""
+        self.overlay_opacity_label.setText(f"{value}%")
+        self.settings_manager.set_setting('overlay_opacity', value)
+        self.update_settings()
+    
+    def toggle_beat_shake(self, state):
+        """Toggle beat shake effect."""
+        enabled = state == Qt.Checked
+        self.beat_shake_slider.setEnabled(enabled)
+        self.settings_manager.set_setting('background_beat_shake_enabled', enabled)
+        self.update_settings()
+    
+    def update_beat_shake_label(self, value):
+        """Update beat shake intensity label."""
+        self.beat_shake_label.setText(str(value))
+        self.settings_manager.set_setting('background_beat_shake_intensity', value)
+        self.update_settings()
+    
+    def update_logo_scale_label(self, value):
+        """Update logo scale label."""
+        self.logo_scale_label.setText(f"{value}%")
+        self.settings_manager.set_setting('logo_scale', value)
         self.update_settings()
     
     def toggle_strobe_color(self, state):
@@ -1274,6 +1790,23 @@ class MainWindow(QMainWindow):
             encoding_text = self.encoding_preset_combo.currentText().lower()
             self.settings_manager.set_setting('encoding_preset', encoding_text)
         
+        # Overlay effects
+        if hasattr(self, 'overlay_effect_combo'):
+            overlay_text = self.overlay_effect_combo.currentText().lower()
+            self.settings_manager.set_setting('overlay_effect_type', overlay_text)
+        
+        # Logo settings
+        if hasattr(self, 'logo_text_input'):
+            self.settings_manager.set_setting('logo_text', self.logo_text_input.text())
+        if hasattr(self, 'logo_position_combo'):
+            logo_position = self.logo_position_combo.currentText().lower()
+            self.settings_manager.set_setting('logo_position', logo_position)
+        
+        # Slideshow settings
+        if hasattr(self, 'transition_combo'):
+            transition_text = self.transition_combo.currentText().lower()
+            self.settings_manager.set_setting('slideshow_transition', transition_text)
+        
         # Update video generator
         self.update_video_generator()
         
@@ -1286,7 +1819,10 @@ class MainWindow(QMainWindow):
             
             # Use a timer to debounce rapid setting changes
             self.preview_update_timer.stop()
-            self.preview_update_timer.start(500)  # Wait 500ms after last change
+            # Wait longer if not in fast preview mode
+            fast_preview = hasattr(self, 'fast_preview_checkbox') and self.fast_preview_checkbox.isChecked()
+            debounce_time = 800 if fast_preview else 1500  # 0.8s for fast, 1.5s for full quality
+            self.preview_update_timer.start(debounce_time)
     
     def toggle_auto_preview(self, state):
         """Toggle auto-preview updates."""
@@ -1300,13 +1836,24 @@ class MainWindow(QMainWindow):
             return
         
         try:
-            # Generate 5 seconds of preview frames (or less if audio is shorter)
-            frame_rate = self.settings_manager.get_setting('frame_rate', 30)
-            duration = min(5.0, self.audio_processor.get_duration())
-            num_frames = int(duration * frame_rate)
+            # Check if fast preview mode is enabled
+            fast_preview = hasattr(self, 'fast_preview_checkbox') and self.fast_preview_checkbox.isChecked()
             
-            # Limit to reasonable number of frames for performance
-            max_preview_frames = 150  # ~5 seconds at 30fps
+            if fast_preview:
+                # Fast mode: 3 seconds at 15fps = 45 frames
+                frame_rate = 15  # Lower frame rate
+                preview_duration = 3  # Shorter duration
+                duration = min(preview_duration, self.audio_processor.get_duration())
+                num_frames = int(duration * frame_rate)
+                max_preview_frames = 45
+            else:
+                # Full quality mode: 10 seconds at 30fps = 300 frames
+                frame_rate = self.settings_manager.get_setting('frame_rate', 30)
+                preview_duration = self.settings_manager.get_setting('preview_duration', 10)
+                duration = min(preview_duration, self.audio_processor.get_duration())
+                num_frames = int(duration * frame_rate)
+                max_preview_frames = 300
+            
             num_frames = min(num_frames, max_preview_frames)
             
             self.preview_frames = []
@@ -1316,17 +1863,37 @@ class MainWindow(QMainWindow):
             class PreviewFrameGenerator(QThread):
                 frames_ready = pyqtSignal(list, int)
                 
-                def __init__(self, video_generator, num_frames, frame_rate):
+                def __init__(self, video_generator, num_frames, frame_rate, fast_mode=False):
                     super().__init__()
                     self.video_generator = video_generator
                     self.num_frames = num_frames
                     self.frame_rate = frame_rate
+                    self.fast_mode = fast_mode
                 
                 def run(self):
                     frames = []
+                    # In fast mode, scale frame numbers to sample from full timeline
+                    full_frame_rate = self.video_generator.frame_rate
+                    
                     for i in range(self.num_frames):
                         try:
-                            frame = self.video_generator.generate_frame(i)
+                            # Map preview frame to actual video frame
+                            if self.fast_mode:
+                                # Sample frames at lower rate across the timeline
+                                actual_frame = int(i * (full_frame_rate / self.frame_rate))
+                            else:
+                                actual_frame = i
+                            
+                            frame = self.video_generator.generate_frame(actual_frame)
+                            
+                            # In fast mode, optionally reduce resolution for even faster generation
+                            if self.fast_mode and i < 5:  # Only first 5 frames in super fast mode
+                                # Reduce to 50% size for faster processing
+                                width, height = frame.size
+                                frame = frame.resize((width // 2, height // 2), Image.Resampling.FAST)
+                                # Scale back up (preview widget will handle final sizing)
+                                frame = frame.resize((width, height), Image.Resampling.FAST)
+                            
                             frames.append(frame)
                         except Exception as e:
                             print(f"Error generating preview frame {i}: {e}")
@@ -1334,7 +1901,7 @@ class MainWindow(QMainWindow):
                     self.frames_ready.emit(frames, self.frame_rate)
             
             self.preview_generator_thread = PreviewFrameGenerator(
-                self.video_generator, num_frames, frame_rate
+                self.video_generator, num_frames, frame_rate, fast_preview
             )
             self.preview_generator_thread.frames_ready.connect(
                 lambda frames, fr: self.on_preview_frames_ready(frames, fr, was_playing)
@@ -1394,8 +1961,9 @@ class MainWindow(QMainWindow):
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         
+        preview_duration = self.settings_manager.get_setting('preview_duration', 10)
         self.generation_thread = VideoGenerationThread(
-            self.video_generator, preview_path, preview_seconds=5
+            self.video_generator, preview_path, preview_seconds=preview_duration
         )
         self.generation_thread.progress.connect(self.update_progress)
         self.generation_thread.finished.connect(self.on_preview_finished)
@@ -1475,10 +2043,57 @@ class MainWindow(QMainWindow):
         if bg_path:
             self.bg_path_input.setText(bg_path)
         
+        # Load multiple background paths
+        background_paths = settings.get('background_paths', [])
+        if background_paths and hasattr(self, 'bg_list_widget'):
+            self.bg_list_widget.clear()
+            for path in background_paths:
+                self.bg_list_widget.addItem(path)
+        
+        # Load slideshow settings
+        if hasattr(self, 'slideshow_enabled_checkbox'):
+            slideshow_enabled = settings.get('slideshow_enabled', False)
+            self.slideshow_enabled_checkbox.setChecked(slideshow_enabled)
+            self.toggle_slideshow_settings(Qt.Checked if slideshow_enabled else Qt.Unchecked)
+        
+        if hasattr(self, 'slideshow_interval_slider'):
+            interval = settings.get('slideshow_interval', 10)
+            self.slideshow_interval_slider.setValue(interval)
+            self.slideshow_interval_label.setText(f"{interval}s")
+        
+        if hasattr(self, 'transition_combo'):
+            transition = settings.get('slideshow_transition', 'fade')
+            transition_map = {
+                'fade': 'Fade',
+                'crossfade': 'Crossfade',
+                'slide': 'Slide',
+                'zoom': 'Zoom',
+                'instant': 'Instant'
+            }
+            if transition in transition_map:
+                self.transition_combo.setCurrentText(transition_map[transition])
+        
+        if hasattr(self, 'transition_duration_slider'):
+            duration = settings.get('transition_duration', 1.0)
+            self.transition_duration_slider.setValue(int(duration * 10))
+            self.transition_duration_label.setText(f"{duration:.1f}s")
+        
         # Load video background path
         video_bg_path = settings.get('video_background_path', '')
         if video_bg_path and hasattr(self, 'bg_video_path_input'):
             self.bg_video_path_input.setText(video_bg_path)
+        
+        # Load multiple video background paths
+        video_background_paths = settings.get('video_background_paths', [])
+        if video_background_paths and hasattr(self, 'bg_video_list_widget'):
+            self.bg_video_list_widget.clear()
+            for path in video_background_paths:
+                self.bg_video_list_widget.addItem(path)
+        
+        # Load auto-adjust slideshow setting
+        if hasattr(self, 'auto_adjust_slideshow_checkbox'):
+            auto_adjust = settings.get('auto_adjust_slideshow', False)
+            self.auto_adjust_slideshow_checkbox.setChecked(auto_adjust)
         
         # Load background type
         bg_type = settings.get('background_type', 'image')
@@ -1537,7 +2152,13 @@ class MainWindow(QMainWindow):
                 'Bars': 'Bars',
                 'Circle': 'Circle',
                 'Line Waveform': 'Line Waveform',
-                'Particle': 'Particle'
+                'Particle': 'Particle',
+                'Ncs Bars': 'NCS Bars',
+                'Dual Spectrum': 'Dual Spectrum',
+                'Waveform Particle': 'Waveform Particle',
+                'Modern Gradient Bars': 'Modern Gradient Bars',
+                'Pulse Ring': 'Pulse Ring',
+                'Frequency Dots': 'Frequency Dots'
             }
             if style in style_map:
                 self.visualizer_style_combo.setCurrentText(style_map[style])
@@ -1549,7 +2170,11 @@ class MainWindow(QMainWindow):
                 'Frequency-Based': 'Frequency-based',
                 'Energy-Based': 'Energy-based',
                 'Custom': 'Custom',
-                'Monochrome': 'Monochrome'
+                'Monochrome': 'Monochrome',
+                'Neon': 'Neon',
+                'Sunset': 'Sunset',
+                'Ocean': 'Ocean',
+                'Fire': 'Fire'
             }
             if gradient in gradient_map:
                 self.color_gradient_combo.setCurrentText(gradient_map[gradient])

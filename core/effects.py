@@ -346,4 +346,169 @@ def apply_beat_zoom(frame: Image.Image, beat_strength: float,
     return zoomed
 
 
+def apply_fade_transition(image1: Image.Image, image2: Image.Image, progress: float) -> Image.Image:
+    """
+    Apply fade transition between two images.
+    
+    Args:
+        image1: First image (fading out)
+        image2: Second image (fading in)
+        progress: Transition progress (0.0 to 1.0)
+        
+    Returns:
+        Blended image
+    """
+    if progress <= 0:
+        return image1
+    if progress >= 1:
+        return image2
+    
+    # Ensure both images are same mode
+    if image1.mode != 'RGB':
+        image1 = image1.convert('RGB')
+    if image2.mode != 'RGB':
+        image2 = image2.convert('RGB')
+    
+    # Blend images
+    return Image.blend(image1, image2, progress)
+
+
+def apply_crossfade_transition(image1: Image.Image, image2: Image.Image, progress: float) -> Image.Image:
+    """
+    Apply crossfade transition (same as fade).
+    
+    Args:
+        image1: First image
+        image2: Second image
+        progress: Transition progress (0.0 to 1.0)
+        
+    Returns:
+        Blended image
+    """
+    return apply_fade_transition(image1, image2, progress)
+
+
+def apply_slide_transition(image1: Image.Image, image2: Image.Image, progress: float,
+                           direction: str = 'left') -> Image.Image:
+    """
+    Apply slide transition between two images.
+    
+    Args:
+        image1: First image
+        image2: Second image
+        progress: Transition progress (0.0 to 1.0)
+        direction: Slide direction ('left', 'right', 'up', 'down')
+        
+    Returns:
+        Composite image with slide effect
+    """
+    if progress <= 0:
+        return image1
+    if progress >= 1:
+        return image2
+    
+    width, height = image1.size
+    
+    # Ensure both images are RGBA for compositing
+    if image1.mode != 'RGBA':
+        image1 = image1.convert('RGBA')
+    if image2.mode != 'RGBA':
+        image2 = image2.convert('RGBA')
+    
+    # Create result image
+    result = Image.new('RGBA', (width, height))
+    
+    # Calculate positions based on direction
+    if direction == 'left':
+        pos1 = (int(-width * progress), 0)
+        pos2 = (int(width * (1 - progress)), 0)
+    elif direction == 'right':
+        pos1 = (int(width * progress), 0)
+        pos2 = (int(-width * (1 - progress)), 0)
+    elif direction == 'up':
+        pos1 = (0, int(-height * progress))
+        pos2 = (0, int(height * (1 - progress)))
+    else:  # down
+        pos1 = (0, int(height * progress))
+        pos2 = (0, int(-height * (1 - progress)))
+    
+    # Paste images at calculated positions
+    result.paste(image1, pos1)
+    result.paste(image2, pos2)
+    
+    return result.convert('RGB')
+
+
+def apply_zoom_transition(image1: Image.Image, image2: Image.Image, progress: float) -> Image.Image:
+    """
+    Apply zoom transition (image1 zooms out while image2 fades in).
+    
+    Args:
+        image1: First image (zooming out)
+        image2: Second image (fading in)
+        progress: Transition progress (0.0 to 1.0)
+        
+    Returns:
+        Composite image with zoom effect
+    """
+    if progress <= 0:
+        return image1
+    if progress >= 1:
+        return image2
+    
+    width, height = image1.size
+    
+    # Zoom out image1
+    zoom_factor = 1.0 + progress
+    new_width = int(width * zoom_factor)
+    new_height = int(height * zoom_factor)
+    
+    # Resize image1 (zoom out)
+    zoomed1 = image1.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    
+    # Crop to original size (centered)
+    left = (new_width - width) // 2
+    top = (new_height - height) // 2
+    zoomed1 = zoomed1.crop((left, top, left + width, top + height))
+    
+    # Fade in image2
+    return apply_fade_transition(zoomed1, image2, progress)
+
+
+def apply_beat_shake(frame: Image.Image, beat_strength: float, intensity: int = 50) -> Image.Image:
+    """
+    Apply shake effect based on beat strength.
+    
+    Args:
+        frame: PIL Image to shake
+        beat_strength: Beat strength (0.0 to 1.0)
+        intensity: Shake intensity (0-100)
+        
+    Returns:
+        Image with shake effect
+    """
+    if beat_strength < 0.01 or intensity == 0:
+        return frame
+    
+    import random
+    
+    width, height = frame.size
+    
+    # Calculate shake amount based on beat strength and intensity
+    max_shake = int((intensity / 100) * 20)  # Max 20 pixels shake
+    shake_amount = int(max_shake * beat_strength)
+    
+    # Random offset
+    offset_x = random.randint(-shake_amount, shake_amount)
+    offset_y = random.randint(-shake_amount, shake_amount)
+    
+    # Create new image with black background
+    result = Image.new('RGB', (width, height), (0, 0, 0))
+    
+    # Paste original image with offset
+    result.paste(frame, (offset_x, offset_y))
+    
+    return result
+
+
 
