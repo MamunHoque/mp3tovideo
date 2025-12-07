@@ -1,6 +1,6 @@
 /**
  * @file WaveformVisualizer.h
- * @brief Waveform visualizer
+ * @brief Smooth filled waveform visualizer
  */
 
 #pragma once
@@ -9,6 +9,10 @@
 
 namespace Visualizers {
 
+/**
+ * @class WaveformVisualizer
+ * @brief Smooth filled waveform visualization
+ */
 class WaveformVisualizer : public BaseVisualizer {
 public:
     explicit WaveformVisualizer(const VisualizerSettings& settings);

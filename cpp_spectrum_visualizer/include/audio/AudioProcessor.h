@@ -104,6 +104,12 @@ public:
      * @return Number of frames for current frame rate
      */
     int getTotalFrames() const { return static_cast<int>(spectrumCache.size()); }
+    
+    /**
+     * @brief Get raw audio data (for beat detection)
+     * @return Reference to audio data
+     */
+    const std::vector<float>& getAudioData() const { return audioData; }
 
 private:
     void cleanup();
@@ -128,5 +134,7 @@ private:
 };
 
 } // namespace Audio
+
+
 
 

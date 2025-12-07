@@ -177,3 +177,5 @@ float BeatDetector::getBeatStrength(int frameNumber, int frameRate, float decayR
 }
 
 } // namespace Audio
+
+

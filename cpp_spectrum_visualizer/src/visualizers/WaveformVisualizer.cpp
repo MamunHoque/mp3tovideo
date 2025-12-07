@@ -4,6 +4,8 @@
  */
 
 #include "visualizers/WaveformVisualizer.h"
+#include <algorithm>
+#include <cmath>
 
 namespace Visualizers {
 
@@ -13,45 +15,53 @@ WaveformVisualizer::WaveformVisualizer(const VisualizerSettings& settings)
 }
 
 cv::Mat WaveformVisualizer::render(const std::vector<float>& bands, const cv::Mat& background) {
-    cv::Mat frame = background.clone();
+    cv::Mat frame;
+    background.copyTo(frame);
     
     if (bands.empty()) {
         return frame;
     }
     
     smoothBands(bands);
+    const auto& bandsToRender = smoothedBands.empty() ? bands : smoothedBands;
     
-    int numBands = smoothedBands.size();
+    int numBands = static_cast<int>(bandsToRender.size());
     int centerY = settings.height / 2;
-    int maxAmplitude = settings.height / 3;
+    float xStep = static_cast<float>(settings.width) / numBands;
     
-    std::vector<cv::Point> topPoints;
-    std::vector<cv::Point> bottomPoints;
+    // Create polygon points for filled waveform
+    std::vector<cv::Point> points;
+    points.reserve(numBands * 2);
     
+    // Top half of waveform
     for (int i = 0; i < numBands; ++i) {
-        float magnitude = smoothedBands[i] * settings.scale;
-        magnitude = std::min(magnitude, 1.0f);
-        
-        int x = (i * settings.width) / numBands;
-        int amplitude = static_cast<int>(magnitude * maxAmplitude);
-        
-        topPoints.push_back(cv::Point(x, centerY - amplitude));
-        bottomPoints.push_back(cv::Point(x, centerY + amplitude));
+        float magnitude = std::clamp(bandsToRender[i] * settings.scale, 0.0f, 1.0f);
+        int y = centerY - static_cast<int>(magnitude * settings.height * 0.4);
+        points.push_back(cv::Point(static_cast<int>(i * xStep), y));
     }
     
-    // Draw filled waveform
-    std::vector<cv::Point> allPoints = topPoints;
-    allPoints.insert(allPoints.end(), bottomPoints.rbegin(), bottomPoints.rend());
-    
-    if (allPoints.size() >= 3) {
-        cv::fillPoly(frame, allPoints, cv::Scalar(255, 100, 200));
+    // Bottom half of waveform (mirror)
+    for (int i = numBands - 1; i >= 0; --i) {
+        float magnitude = std::clamp(bandsToRender[i] * settings.scale, 0.0f, 1.0f);
+        int y = centerY + static_cast<int>(magnitude * settings.height * 0.4);
+        points.push_back(cv::Point(static_cast<int>(i * xStep), y));
     }
     
-    // Draw outline
-    if (topPoints.size() >= 2) {
-        for (size_t i = 0; i < topPoints.size() - 1; ++i) {
-            cv::line(frame, topPoints[i], topPoints[i + 1], cv::Scalar(255, 255, 255), 2);
-            cv::line(frame, bottomPoints[i], bottomPoints[i + 1], cv::Scalar(255, 255, 255), 2);
+    if (points.size() >= 3) {
+        // Draw filled polygon
+        std::vector<std::vector<cv::Point>> contours = {points};
+        cv::fillPoly(frame, contours, cv::Scalar(255, 255, 255));
+        
+        // Draw gradient overlay
+        for (size_t i = 0; i < bandsToRender.size() && i < static_cast<size_t>(points.size() / 2); ++i) {
+            if (i < points.size() / 2) {
+                cv::Scalar color = getColor(static_cast<int>(i), numBands, bandsToRender[i]);
+                
+                // Draw line segment with gradient color
+                if (i > 0) {
+                    cv::line(frame, points[i - 1], points[i], color, 3);
+                }
+            }
         }
     }
     

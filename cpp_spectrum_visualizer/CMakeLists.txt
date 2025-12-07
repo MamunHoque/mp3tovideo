@@ -15,9 +15,13 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # Optimization flags for Release builds
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     if(MSVC)
-        add_compile_options(/O2 /arch:AVX2)
+        add_compile_options(/O2)
+    elseif(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+        # Apple Silicon (M1/M2/M3) optimization
+        add_compile_options(-O3 -mcpu=apple-m1 -ffast-math)
     else()
-        add_compile_options(-O3 -march=native -mavx2 -mfma -ffast-math)
+        # Intel/AMD x86_64 optimization
+        add_compile_options(-O3 -march=native -ffast-math)
     endif()
 endif()
 
@@ -26,7 +30,6 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Core Gui)
 find_package(OpenCV REQUIRED)
 find_package(FFTW3 REQUIRED)
 find_package(SndFile REQUIRED)
-find_package(FFmpeg REQUIRED COMPONENTS avcodec avformat avutil swscale swresample)
 find_package(OpenMP)
 
 # Enable Qt MOC, UIC, and RCC
@@ -41,7 +44,6 @@ include_directories(
     ${OpenCV_INCLUDE_DIRS}
     ${FFTW3_INCLUDE_DIRS}
     ${SNDFILE_INCLUDE_DIRS}
-    ${FFMPEG_INCLUDE_DIRS}
 )
 
 # Source files
@@ -102,7 +104,6 @@ target_link_libraries(${PROJECT_NAME}
     ${OpenCV_LIBS}
     ${FFTW3_LIBRARIES}
     ${SNDFILE_LIBRARIES}
-    ${FFMPEG_LIBRARIES}
 )
 
 # Link OpenMP if available
@@ -141,9 +142,11 @@ message(STATUS "Qt6 version: ${Qt6_VERSION}")
 message(STATUS "OpenCV version: ${OpenCV_VERSION}")
 message(STATUS "FFTW3 found: ${FFTW3_FOUND}")
 message(STATUS "SndFile found: ${SNDFILE_FOUND}")
-message(STATUS "FFmpeg found: ${FFMPEG_FOUND}")
 message(STATUS "OpenMP found: ${OpenMP_CXX_FOUND}")
+message(STATUS "Note: FFmpeg binary required in PATH for video encoding")
 message(STATUS "=========================================")
 message(STATUS "")
+
+
 
 

@@ -8,6 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <vector>
 #include <string>
+#include <memory>
 #include "utils/ColorGradient.h"
 
 namespace Visualizers {
@@ -72,10 +73,12 @@ public:
 
 protected:
     VisualizerSettings settings;
-    Utils::ColorGradient colorGradient;
+    std::unique_ptr<Utils::ColorGradient> colorGradient;
     std::vector<float> smoothedBands;
     
     void smoothBands(const std::vector<float>& bands);
 };
 
 } // namespace Visualizers
+
+
