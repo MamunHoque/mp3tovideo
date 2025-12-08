@@ -69,8 +69,7 @@ class SettingsManager:
         'overlay_effect_type': 'none',  # none, rain, snow, sparkles, bubbles
         'overlay_video_path': '',
         # Preview settings
-        'preview_duration': 10,  # seconds
-        'fast_preview': True  # Enable fast preview mode by default
+        'fast_preview': True  # Enable fast preview mode by default (3s preview)
     }
     
     def __init__(self, settings_file: str = 'settings.json'):

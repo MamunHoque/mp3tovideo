@@ -81,3 +81,5 @@ If you created a DMG file (`dist/MP3 Spectrum Visualizer.dmg`):
 
 
 
+
+

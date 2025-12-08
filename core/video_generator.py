@@ -24,6 +24,7 @@ from core.effects import (
 from core.video_background import VideoBackground
 from core.visualizers import VisualizerFactory
 from core.overlay_effects import OverlayFactory
+from core.logger import get_logger
 
 
 class BackgroundManager:
@@ -160,7 +161,8 @@ class BackgroundManager:
             
             return bg
         except Exception as e:
-            print(f"Error loading background {bg_path}: {e}")
+            logger = get_logger()
+            logger.error(f"Error loading background {bg_path}: {e}", exc_info=True)
             return Image.new('RGB', (self.width, self.height), (0, 0, 0))
     
     def _apply_transition(self, image1: Image.Image, image2: Image.Image, progress: float) -> Image.Image:
@@ -240,7 +242,8 @@ class VideoGenerator:
                 else:
                     self.video_background = None
             except Exception as e:
-                print(f"Error initializing video background: {e}")
+                logger = get_logger()
+                logger.error(f"Error initializing video background: {e}", exc_info=True)
                 self.video_background = None
     
     def _init_visualizer(self) -> None:
@@ -308,9 +311,13 @@ class VideoGenerator:
             color = (r, g, b, 255)
             
             # Draw bar from bottom
-            y1 = height - bar_height
+            # Ensure bar_height doesn't exceed height and coordinates are valid
+            bar_height = min(bar_height, height)
+            y1 = max(0, height - bar_height)
             y2 = height
-            draw.rectangle([x, y1, x + bar_width - bar_spacing, y2], fill=color)
+            # Ensure valid rectangle coordinates
+            if y1 < y2 and x < x + bar_width - bar_spacing:
+                draw.rectangle([x, y1, x + bar_width - bar_spacing, y2], fill=color)
         
         return spectrum_img
     
@@ -346,7 +353,8 @@ class VideoGenerator:
                     
                     return bg
             except Exception as e:
-                print(f"Error loading video background frame: {e}")
+                logger = get_logger()
+                logger.error(f"Error loading video background frame: {e}", exc_info=True)
         
         # Use BackgroundManager for slideshow and transitions
         bg = self.background_manager.get_background_for_frame(frame_number)
@@ -497,7 +505,8 @@ class VideoGenerator:
             image.paste(logo, (x, y), logo)
             return image
         except Exception as e:
-            print(f"Error adding logo: {e}")
+            logger = get_logger()
+            logger.error(f"Error adding logo: {e}", exc_info=True)
             return image
     
     def _add_text_logo(self, image: Image.Image, text: str) -> Image.Image:
@@ -718,6 +727,9 @@ class VideoGenerator:
         
         end_frame = min(end_frame, total_frames)
         
+        logger = get_logger()
+        logger.info(f"Generating frames {start_frame} to {end_frame} (total: {end_frame - start_frame} frames)")
+        
         # Check quality preset
         quality_preset = self.settings.get('quality_preset', 'balanced')
         use_multiprocessing = self.settings.get('use_multiprocessing', True)
@@ -868,10 +880,11 @@ class VideoGenerator:
             
             return True
         except Exception as e:
-            print(f"Error assembling video: {e}")
+            logger = get_logger()
+            logger.error(f"Error assembling video: {e}", exc_info=True)
             # Try fallback without hardware acceleration
             if use_hw_accel:
-                print("Retrying without hardware acceleration...")
+                logger.warning("Retrying without hardware acceleration...")
                 self.settings['use_hardware_acceleration'] = False
                 return self.assemble_video(frames_dir, output_path, audio_path)
             return False
@@ -897,11 +910,19 @@ class VideoGenerator:
             temp_dir = self._create_temp_dir()
             
             # Calculate frame range
-            duration = self.audio_processor.get_duration()
+            audio_duration = self.audio_processor.get_duration()
+            logger = get_logger()
+            logger.info(f"Audio duration: {audio_duration:.2f} seconds")
+            
             if preview_seconds:
-                duration = min(duration, preview_seconds)
+                duration = min(audio_duration, preview_seconds)
+                logger.info(f"Preview mode: generating {duration:.2f} seconds")
+            else:
+                duration = audio_duration
+                logger.info(f"Full video mode: generating {duration:.2f} seconds ({duration/60:.2f} minutes)")
             
             total_frames = int(duration * self.frame_rate)
+            logger.info(f"Total frames to generate: {total_frames} at {self.frame_rate} fps")
             
             # Generate frames with enhanced progress
             if progress_callback:
@@ -971,7 +992,8 @@ class VideoGenerator:
             
             return success
         except Exception as e:
-            print(f"Error generating video: {e}")
+            logger = get_logger()
+            logger.error(f"Error generating video: {e}", exc_info=True)
             self._cleanup_temp_dir()
             return False
 

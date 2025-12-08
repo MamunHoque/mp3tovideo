@@ -305,9 +305,13 @@ class BarsVisualizer(BaseVisualizer):
             color = self.get_color(i, num_bands, magnitude)
             
             # Draw bar from bottom
-            y1 = self.height - bar_height
+            # Ensure bar_height doesn't exceed height and coordinates are valid
+            bar_height = min(bar_height, self.height)
+            y1 = max(0, self.height - bar_height)
             y2 = self.height
-            draw.rectangle([x, y1, x + bar_width - bar_spacing, y2], fill=color)
+            # Ensure valid rectangle coordinates
+            if y1 < y2 and x < x + bar_width - bar_spacing:
+                draw.rectangle([x, y1, x + bar_width - bar_spacing, y2], fill=color)
         
         return img
 
@@ -552,9 +556,13 @@ class NCSBarsVisualizer(BaseVisualizer):
             color = self.get_color(i, num_bands, magnitude)
             
             # Draw bar symmetrically from center
-            y1 = center_y - bar_height
-            y2 = center_y + bar_height
-            draw.rectangle([x, y1, x + bar_width - bar_spacing, y2], fill=color)
+            # Ensure bar_height doesn't exceed half height and coordinates are valid
+            max_bar_height = min(bar_height, center_y, self.height - center_y)
+            y1 = max(0, center_y - max_bar_height)
+            y2 = min(self.height, center_y + max_bar_height)
+            # Ensure valid rectangle coordinates
+            if y1 < y2 and x < x + bar_width - bar_spacing:
+                draw.rectangle([x, y1, x + bar_width - bar_spacing, y2], fill=color)
         
         # Apply glow effect
         img = self._apply_glow(img, radius=15, iterations=2)
@@ -725,13 +733,17 @@ class ModernGradientBarsVisualizer(BaseVisualizer):
             color = self.get_color(i, num_bands, magnitude)
             
             # Draw rounded rectangle
-            y1 = self.height - bar_height
+            # Ensure bar_height doesn't exceed height and coordinates are valid
+            bar_height = min(bar_height, self.height)
+            y1 = max(0, self.height - bar_height)
             y2 = self.height
             
-            # Draw bar with rounded top
-            corner_radius = min(bar_width // 2, 10)
-            self._draw_rounded_rectangle(draw, [x, y1, x + bar_width - bar_spacing, y2], 
-                                        corner_radius, color)
+            # Ensure valid rectangle coordinates before drawing
+            if y1 < y2 and x < x + bar_width - bar_spacing:
+                # Draw bar with rounded top
+                corner_radius = min(bar_width // 2, 10)
+                self._draw_rounded_rectangle(draw, [x, y1, x + bar_width - bar_spacing, y2], 
+                                            corner_radius, color)
         
         return img
     
@@ -739,13 +751,29 @@ class ModernGradientBarsVisualizer(BaseVisualizer):
         """Draw a rounded rectangle."""
         x1, y1, x2, y2 = coords
         
-        # Draw main rectangle
-        draw.rectangle([x1, y1 + radius, x2, y2], fill=fill)
-        draw.rectangle([x1 + radius, y1, x2 - radius, y1 + radius], fill=fill)
+        # Validate coordinates
+        if x1 >= x2 or y1 >= y2:
+            return  # Invalid coordinates, skip drawing
         
-        # Draw corners
-        draw.ellipse([x1, y1, x1 + radius * 2, y1 + radius * 2], fill=fill)
-        draw.ellipse([x2 - radius * 2, y1, x2, y1 + radius * 2], fill=fill)
+        # Ensure radius doesn't exceed rectangle dimensions
+        radius = min(radius, (x2 - x1) // 2, (y2 - y1) // 2)
+        if radius <= 0:
+            # If radius is invalid, just draw a regular rectangle
+            draw.rectangle([x1, y1, x2, y2], fill=fill)
+            return
+        
+        # Draw main rectangle
+        if y1 + radius < y2:
+            draw.rectangle([x1, y1 + radius, x2, y2], fill=fill)
+        if x1 + radius < x2 - radius and y1 < y1 + radius:
+            draw.rectangle([x1 + radius, y1, x2 - radius, y1 + radius], fill=fill)
+        
+        # Draw corners (only if they fit)
+        if y1 + radius * 2 <= y2:
+            if x1 + radius * 2 <= x2:
+                draw.ellipse([x1, y1, x1 + radius * 2, y1 + radius * 2], fill=fill)
+            if x2 - radius * 2 >= x1:
+                draw.ellipse([x2 - radius * 2, y1, x2, y1 + radius * 2], fill=fill)
 
 
 class PulseRingVisualizer(BaseVisualizer):

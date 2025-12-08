@@ -41,9 +41,16 @@ class VideoGenerationThread(QThread):
     
     def run(self):
         """Run video generation."""
+        from core.logger import get_logger
+        logger = get_logger()
+        
         try:
             def progress_callback(current, total):
                 self.progress.emit(current, total)
+            
+            logger.info(f"Starting video generation: {self.output_path}")
+            if self.preview_seconds:
+                logger.info(f"Generating preview: {self.preview_seconds} seconds")
             
             success = self.video_generator.generate_video(
                 self.output_path,
@@ -52,10 +59,13 @@ class VideoGenerationThread(QThread):
             )
             
             if success:
+                logger.info(f"Video generated successfully: {self.output_path}")
                 self.finished.emit(True, f"Video generated successfully: {self.output_path}")
             else:
-                self.finished.emit(False, "Error generating video. Check console for details.")
+                logger.error("Error generating video. Check console for details.")
+                self.finished.emit(False, "Error generating video. Check Console tab for details.")
         except Exception as e:
+            logger.error(f"Exception during video generation: {str(e)}", exc_info=True)
             self.finished.emit(False, f"Error: {str(e)}")
 
 
@@ -236,6 +246,10 @@ class MainWindow(QMainWindow):
         # Save/Load Tab
         save_load_tab = self.create_save_load_tab()
         self.tabs.addTab(save_load_tab, "Save/Load")
+        
+        # Console Tab
+        console_tab = self.create_console_tab()
+        self.tabs.addTab(console_tab, "Console")
         
         layout.addWidget(self.tabs)
         panel.setLayout(layout)
@@ -984,6 +998,87 @@ class MainWindow(QMainWindow):
         tab.setLayout(layout)
         return tab
     
+    def create_console_tab(self) -> QWidget:
+        """Create Console tab for viewing logs."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
+        
+        # Console Log Viewer
+        console_group = QGroupBox("Console Logs")
+        console_layout = QVBoxLayout()
+        
+        # Console text area
+        self.console_text = QTextEdit()
+        self.console_text.setReadOnly(True)
+        self.console_text.setFontFamily("Courier")
+        self.console_text.setFontPointSize(9)
+        self.console_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #1e1e1e;
+                color: #d4d4d4;
+                border: 1px solid #3e3e3e;
+            }
+        """)
+        console_layout.addWidget(self.console_text)
+        
+        # Console controls
+        console_controls = QHBoxLayout()
+        clear_btn = QPushButton("Clear Console")
+        clear_btn.clicked.connect(self.console_text.clear)
+        console_controls.addWidget(clear_btn)
+        console_controls.addStretch()
+        console_layout.addLayout(console_controls)
+        
+        console_group.setLayout(console_layout)
+        layout.addWidget(console_group, 1)
+        
+        tab.setLayout(layout)
+        
+        # Set up logger to use GUI handler
+        self.setup_logger_handler()
+        
+        return tab
+    
+    def setup_logger_handler(self):
+        """Set up logger to display logs in console tab."""
+        from core.logger import get_logger
+        
+        def log_callback(level: str, message: str):
+            """Callback for logger to display in GUI."""
+            # Safety check - make sure console_text exists
+            if not hasattr(self, 'console_text') or self.console_text is None:
+                return
+            
+            try:
+                # Color coding based on level
+                color_map = {
+                    'DEBUG': '#888888',
+                    'INFO': '#4ec9b0',
+                    'WARNING': '#dcdcaa',
+                    'ERROR': '#f48771',
+                    'CRITICAL': '#f48771'
+                }
+                color = color_map.get(level, '#d4d4d4')
+                
+                # Format message with color
+                formatted = f'<span style="color: {color};">{message}</span>'
+                self.console_text.append(formatted)
+                
+                # Auto-scroll to bottom
+                scrollbar = self.console_text.verticalScrollBar()
+                scrollbar.setValue(scrollbar.maximum())
+            except Exception:
+                # Silently fail if console widget is not available
+                pass
+        
+        logger = get_logger()
+        logger.set_gui_handler(log_callback)
+        
+        # Add initial message
+        logger.info("Console log viewer initialized. Errors and logs will appear here.")
+    
     def create_right_panel(self) -> QWidget:
         """Create right panel with file selection, output, and preview."""
         panel = QWidget()
@@ -1037,9 +1132,9 @@ class MainWindow(QMainWindow):
         self.auto_preview_checkbox.stateChanged.connect(self.toggle_auto_preview)
         preview_controls_layout.addWidget(self.auto_preview_checkbox)
         
-        self.fast_preview_checkbox = QCheckBox("Fast Preview")
+        self.fast_preview_checkbox = QCheckBox("Fast Preview (3s)")
         self.fast_preview_checkbox.setChecked(True)
-        self.fast_preview_checkbox.setToolTip("⚡ Generate preview at lower resolution and fewer frames for faster updates")
+        self.fast_preview_checkbox.setToolTip("⚡ Fast: 3 seconds preview for quick updates\n🎬 Unchecked: Full video preview (slower but shows entire video)")
         self.fast_preview_checkbox.stateChanged.connect(self.update_settings)
         preview_controls_layout.addWidget(self.fast_preview_checkbox)
         
@@ -1840,19 +1935,19 @@ class MainWindow(QMainWindow):
             fast_preview = hasattr(self, 'fast_preview_checkbox') and self.fast_preview_checkbox.isChecked()
             
             if fast_preview:
-                # Fast mode: 3 seconds at 15fps = 45 frames
+                # Fast mode: 3 seconds at 15fps = 45 frames (for quick preview)
                 frame_rate = 15  # Lower frame rate
                 preview_duration = 3  # Shorter duration
                 duration = min(preview_duration, self.audio_processor.get_duration())
                 num_frames = int(duration * frame_rate)
                 max_preview_frames = 45
             else:
-                # Full quality mode: 10 seconds at 30fps = 300 frames
+                # Full video mode: Generate entire video at full frame rate
                 frame_rate = self.settings_manager.get_setting('frame_rate', 30)
-                preview_duration = self.settings_manager.get_setting('preview_duration', 10)
-                duration = min(preview_duration, self.audio_processor.get_duration())
+                duration = self.audio_processor.get_duration()  # Use full audio duration
                 num_frames = int(duration * frame_rate)
-                max_preview_frames = 300
+                # No max limit for full preview - generate entire video
+                max_preview_frames = num_frames
             
             num_frames = min(num_frames, max_preview_frames)
             
@@ -1890,13 +1985,16 @@ class MainWindow(QMainWindow):
                             if self.fast_mode and i < 5:  # Only first 5 frames in super fast mode
                                 # Reduce to 50% size for faster processing
                                 width, height = frame.size
-                                frame = frame.resize((width // 2, height // 2), Image.Resampling.FAST)
+                                # Use NEAREST for fastest resampling (FAST doesn't exist in newer Pillow)
+                                frame = frame.resize((width // 2, height // 2), Image.Resampling.NEAREST)
                                 # Scale back up (preview widget will handle final sizing)
-                                frame = frame.resize((width, height), Image.Resampling.FAST)
+                                frame = frame.resize((width, height), Image.Resampling.NEAREST)
                             
                             frames.append(frame)
                         except Exception as e:
-                            print(f"Error generating preview frame {i}: {e}")
+                            from core.logger import get_logger
+                            logger = get_logger()
+                            logger.error(f"Error generating preview frame {i}: {e}", exc_info=True)
                             break
                     self.frames_ready.emit(frames, self.frame_rate)
             
@@ -1909,7 +2007,9 @@ class MainWindow(QMainWindow):
             self.preview_generator_thread.start()
             
         except Exception as e:
-            print(f"Error generating preview frames: {e}")
+            from core.logger import get_logger
+            logger = get_logger()
+            logger.error(f"Error generating preview frames: {e}", exc_info=True)
     
     def on_preview_frames_ready(self, frames, frame_rate, was_playing):
         """Handle preview frames ready signal."""
@@ -1941,7 +2041,9 @@ class MainWindow(QMainWindow):
                 frame = self.video_generator.generate_frame(0)
                 self.preview_widget.display_frame(frame)
             except Exception as e:
-                print(f"Error updating preview: {e}")
+                from core.logger import get_logger
+                logger = get_logger()
+                logger.error(f"Error updating preview: {e}", exc_info=True)
     
     def generate_preview(self):
         """Generate preview video."""

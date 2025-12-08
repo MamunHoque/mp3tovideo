@@ -5,7 +5,7 @@ Provides structured logging with different levels.
 
 import logging
 import sys
-from typing import Optional
+from typing import Optional, Callable
 from pathlib import Path
 
 
@@ -39,6 +39,9 @@ class Logger:
         )
         console_handler.setFormatter(console_format)
         self.logger.addHandler(console_handler)
+        
+        # GUI handler callback (set by GUI)
+        self.gui_handler_callback: Optional[Callable[[str, str], None]] = None
     
     def debug(self, message: str) -> None:
         """Log debug message."""
@@ -93,6 +96,39 @@ class Logger:
         )
         file_handler.setFormatter(file_format)
         self.logger.addHandler(file_handler)
+    
+    def set_gui_handler(self, callback: Callable[[str, str], None]) -> None:
+        """
+        Set GUI handler callback for displaying logs in GUI.
+        
+        Args:
+            callback: Function(level, message) to call for each log message
+        """
+        self.gui_handler_callback = callback
+        
+        # Add custom handler that uses the callback
+        class GUIHandler(logging.Handler):
+            def __init__(self, callback):
+                super().__init__()
+                self.callback = callback
+                self.setLevel(logging.DEBUG)
+            
+            def emit(self, record):
+                try:
+                    level = record.levelname
+                    msg = self.format(record)
+                    if self.callback:
+                        self.callback(level, msg)
+                except Exception:
+                    pass
+        
+        gui_handler = GUIHandler(callback)
+        gui_format = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%H:%M:%S'
+        )
+        gui_handler.setFormatter(gui_format)
+        self.logger.addHandler(gui_handler)
 
 
 # Global logger instance
@@ -102,4 +138,6 @@ _logger = Logger()
 def get_logger() -> Logger:
     """Get the global logger instance."""
     return _logger
+
+
 

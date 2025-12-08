@@ -183,3 +183,5 @@ class CacheManager:
             'total_cached': len(self._spectrum_cache) + len(self._bands_cache) + len(self._image_cache)
         }
 
+
+
