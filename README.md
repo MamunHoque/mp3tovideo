@@ -166,8 +166,6 @@ To compile the application into a standalone macOS app:
 ./create_dmg.sh
 ```
 
-See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed build instructions.
-
 ## Troubleshooting
 
 - **ffmpeg not found**: Ensure ffmpeg is installed and available in your system PATH
