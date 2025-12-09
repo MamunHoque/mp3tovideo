@@ -43,6 +43,10 @@ settings.json
 *.tmp
 *.log
 
+# Documentation (already on GitHub)
+.docs/
+
+
 
 
 
