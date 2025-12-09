@@ -1,9 +1,0 @@
-"""
-GUI components module
-"""
-
-
-
-
-
-

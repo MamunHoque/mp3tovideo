@@ -2,6 +2,10 @@
 
 A professional Python application for creating stunning video visualizations from MP3 audio files with advanced features including video backgrounds, beat detection, multiple visualizer styles, and platform-specific export presets.
 
+**Developed by [Mamun Hoque](https://github.com/MamunHoque)**
+
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue)](https://github.com/MamunHoque/mp3tovideo)
+
 ## Features
 
 ### Audio Analysis
@@ -171,4 +175,19 @@ See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed build instructio
 - **Video generation fails**: Check that you have write permissions for the output directory
 - **Preview not showing**: Ensure an MP3 file is loaded and output path is selected
 - **App won't open after build**: Right-click the app and select "Open" the first time, or run: `xattr -cr "MP3 Spectrum Visualizer.app"`
+
+## About
+
+This project is developed and maintained by **Mamun Hoque**. 
+
+For issues, questions, or contributions, please visit the [GitHub repository](https://github.com/MamunHoque/mp3tovideo).
+
+## License
+
+This project is open source and available for use and modification.
+
+---
+
+**Author**: Mamun Hoque  
+**Repository**: [https://github.com/MamunHoque/mp3tovideo](https://github.com/MamunHoque/mp3tovideo)
 
